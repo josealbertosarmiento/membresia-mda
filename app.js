@@ -123,11 +123,36 @@ async function cargarUsuarios() {
     const lista = document.getElementById('listaUsuarios');
     const snap = await getDocs(collection(db, "usuarios"));
     lista.innerHTML = "";
-    snap.forEach(d => {
+    
+    snap.forEach((d) => {
         const u = d.data();
-        lista.innerHTML += `<div class="miembro-card"><div><b>${u.nombre}</b><br><small>$${u.deuda_total} - ${u.estado_membresia}</small></div></div>`;
+        const deuda = u.deuda_total || 0;
+        const inicial = (u.nombre || "M").charAt(0).toUpperCase();
+        
+        lista.innerHTML += `
+            <div class="miembro-card">
+                <div class="d-flex align-items-center">
+                    <div class="avatar">${inicial}</div>
+                    <div>
+                        <h6 class="mb-0 fw-bold">${u.nombre || "Sin Nombre"}</h6>
+                        <small class="text-muted">$${deuda} - ${u.estado_membresia || "ACTIVO"}</small>
+                        <div class="small text-accent" style="font-size: 10px;">${u.capitulo || "Sin Capítulo"}</div>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline-light" onclick="window.abrirEditorManual('${d.id}', ${deuda})">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+            </div>`;
     });
 }
+
+// Función global para abrir el modal de edición (Agrégala al final de app.js)
+window.abrirEditorManual = (uid, deudaActual) => {
+    document.getElementById('editUid').value = uid;
+    document.getElementById('editDeuda').value = deudaActual;
+    const modal = new bootstrap.Modal(document.getElementById('modalEditarMiembro'));
+    modal.show();
+};
 
 async function prepararSelectCobro() {
     const select = document.getElementById('selectCobroMiembro');
@@ -161,3 +186,23 @@ document.getElementById('formNuevoMiembro').addEventListener('submit', async (e)
     await signOut(authSecundaria);
     location.reload();
 });
+
+async function cargarUsuariosTesorero() {
+    const lista = document.getElementById('listaUsuarios');
+    const snap = await getDocs(collection(db, "usuarios"));
+    lista.innerHTML = "";
+    
+    snap.forEach((d) => {
+        const u = d.data();
+        lista.innerHTML += `
+            <div class="miembro-card d-flex justify-content-between align-items-center p-3 mb-2 card-custom">
+                <div>
+                    <h6 class="mb-1 fw-bold">${u.nombre}</h6>
+                    <span class="badge bg-danger">Debe: $${u.deuda_total || 0}</span>
+                    <span class="badge bg-success">Pagado: $${u.acumulado_pagado || 0}</span>
+                </div>
+                <button class="btn btn-sm btn-success" onclick="abrirModalPago('${d.id}')">Cobrar</button>
+            </div>
+        `;
+    });
+}

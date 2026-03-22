@@ -56,27 +56,27 @@
             </div>
 
             <div id="seccionDirectorio" class="d-none">
-                <h2 class="fw-bold mb-3">Miembros</h2>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="fw-bold mb-0">Miembros</h2>
+                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCobroReal">Registrar Pago</button>
+                </div>
                 <div id="listaUsuarios"></div>
             </div>
         </div>
 
-        <button id="btnFabNuevo" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalNuevoMiembro">+</button>
+        <button id="btnNuevoRegistro" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalRegistroPro">+</button>
 
-        <div class="modal fade" id="modalNuevoMiembro" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="modalRegistroPro" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
-                    <div class="modal-header border-0 pb-0">
-                        <h5 class="fw-bold">Nuevo Registro</h5>
-                        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
+                    <div class="modal-header border-0 pb-0"><h5 class="fw-bold">Nuevo Registro MG</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
                         <form id="formNuevoMiembro">
-                            <input type="text" id="nuevoNombre" class="form-control mb-3" placeholder="Nombre" required>
+                            <input type="text" id="nuevoNombre" class="form-control mb-3" placeholder="Nombre Completo" required>
                             <input type="email" id="nuevoEmail" class="form-control mb-3" placeholder="Correo" required>
                             <input type="password" id="nuevoPass" class="form-control mb-3" placeholder="Clave temporal" required>
                             <div class="row">
-                                <div class="col-6"><select id="nuevoRango" class="form-select mb-3"><option value="Rookie">Rookie</option><option value="Miembro">Miembro</option><option value="Secretario">Secretario</option><option value="Tesorero">Tesorero</option><option value="Presidente">Presidente</option></select></div>
+                                <div class="col-6"><select id="nuevoRango" class="form-select mb-3"><option value="Rookie">Rookie</option><option value="Miembro">Miembro</option><option value="Tesorero">Tesorero</option><option value="Presidente">Presidente</option></select></div>
                                 <div class="col-6"><select id="nuevoRol" class="form-select mb-3"><option value="ESTANDAR">Estandar</option><option value="ADMIN">Admin</option></select></div>
                             </div>
                             <button type="submit" id="btnGuardarMiembro" class="btn btn-danger w-100 fw-bold py-2">Guardar Miembro</button>
@@ -86,22 +86,18 @@
             </div>
         </div>
 
-        <div class="modal fade" id="modalEditarMiembro" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="modalCobroReal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
-                    <div class="modal-header border-0"><h5 class="fw-bold">Actualizar Datos</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-header border-0 pb-0"><h5 class="fw-bold text-success">Registrar Pago</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
-                        <form id="formEditarMiembro">
-                            <input type="hidden" id="editUid">
-                            <div class="mb-3"><label class="small text-muted">Monto de Deuda ($)</label><input type="number" id="editDeuda" class="form-control" required></div>
-                            <div class="mb-3">
-                                <label class="small text-muted">Estado Membresía</label>
-                                <select id="editEstado" class="form-select">
-                                    <option value="ACTIVO">ACTIVO</option>
-                                    <option value="SUSPENDIDO">SUSPENDIDO</option>
-                                </select>
+                        <form id="formRegistrarPago">
+                            <select id="selectCobroMiembro" class="form-select mb-3" required></select>
+                            <div class="input-group mb-4">
+                                <span class="input-group-text bg-dark border-secondary text-success">$</span>
+                                <input type="number" id="montoPago" class="form-control form-control-lg text-center fw-bold" placeholder="0.00" required>
                             </div>
-                            <button type="submit" class="btn btn-danger w-100 fw-bold py-2">Guardar Cambios</button>
+                            <button type="submit" id="btnConfirmarPago" class="btn btn-success w-100 fw-bold py-3">Confirmar y Activar</button>
                         </form>
                     </div>
                 </div>
@@ -127,8 +123,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        // App secundaria para crear usuarios sin cerrar la sesión actual
         const appSecundaria = initializeApp(firebaseConfig, "Secondary");
         const authSecundaria = getAuth(appSecundaria);
 
@@ -144,56 +138,44 @@
 
                 if (userDoc.exists()) {
                     const d = userDoc.data();
-                    let deudaActual = Number(d.deuda_total) || 0;
-                    let estadoActual = d.estado_membresia || "ACTIVO";
+                    let deudaBase = Number(d.deuda_total) || 0;
                     const hoy = new Date();
-                    const fechaAnclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date();
+                    const fechaAnclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
 
-                    // 1. CÁLCULO DE MESES (Solo si está ACTIVO)
-                    let mesesNuevos = 0;
-                    if (estadoActual === "ACTIVO") {
-                        mesesNuevos = ((hoy.getFullYear() - fechaAnclaje.getFullYear()) * 12) + (hoy.getMonth() - fechaAnclaje.getMonth());
-                        // Regla de los 5 días de gracia
-                        if (hoy.getDate() <= 5 && mesesNuevos > 0) mesesNuevos--;
-                    }
+                    let mesesNuevos = ((hoy.getFullYear() - fechaAnclaje.getFullYear()) * 12) + (hoy.getMonth() - fechaAnclaje.getMonth());
+                    if (hoy.getDate() <= 5 && mesesNuevos > 0) mesesNuevos--;
+                    if (mesesNuevos < 0) mesesNuevos = 0;
 
-                    let deudaFinal = deudaActual + (mesesNuevos * 5);
-                    let nuevoEstado = estadoActual;
+                    let deudaCalculada = deudaBase + (mesesNuevos * (d.estado_membresia === "SUSPENDIDO" ? 0 : 5));
+                    let nuevoEstado = d.estado_membresia;
+                    if (deudaCalculada >= 20) { deudaCalculada = 20; nuevoEstado = "SUSPENDIDO"; }
 
-                    // 2. LÓGICA DE SUSPENSIÓN AUTOMÁTICA
-                    if (deudaFinal >= 20 && estadoActual === "ACTIVO") {
-                        deudaFinal = 20;
-                        nuevoEstado = "SUSPENDIDO";
-                    }
-
-                    // 3. GUARDADO AUTOMÁTICO (Si pasó un mes o cambió el estado)
                     if (mesesNuevos > 0 || nuevoEstado !== d.estado_membresia) {
-                        await updateDoc(userRef, {
-                            deuda_total: deudaFinal,
-                            estado_membresia: nuevoEstado,
-                            // Al actualizar, anclamos a hoy para "borrar" el tiempo pasado
-                            fecha_anclaje: hoy.toISOString().split('T')[0]
-                        });
-                        deudaFinalGlobal = deudaFinal;
-                        estadoGlobal = nuevoEstado;
-                    } else {
-                        deudaFinalGlobal = deudaFinal;
-                        estadoGlobal = d.estado_membresia;
+                        await updateDoc(userRef, { deuda_total: deudaCalculada, estado_membresia: nuevoEstado, fecha_anclaje: hoy.toISOString().split('T')[0] });
                     }
 
-                    // --- INTERFAZ ---
+                    deudaFinalGlobal = deudaCalculada;
+                    estadoGlobal = nuevoEstado;
+
+                    document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
                     document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
-                    const indicador = document.getElementById('indicadorSuspension');
-                    
+                    document.getElementById('txtRolMenu').innerText = d.rol_app || "MIEMBRO";
+
+                    const ind = document.getElementById('indicadorSuspension');
                     if(estadoGlobal === "SUSPENDIDO") {
-                        indicador.innerText = "⚠️ SUSPENSIÓN: Meses congelados. Prohibido uso de colores.";
-                        indicador.classList.remove('d-none');
-                    } else {
-                        indicador.classList.add('d-none');
-                    }
+                        ind.innerText = "⚠️ SUSPENSIÓN: Prohibido uso de colores.";
+                        ind.classList.remove('d-none');
+                    } else { ind.classList.add('d-none'); }
 
                     generarCalendario(deudaFinalGlobal, estadoGlobal, "2026");
-                    if (d.rol_app === "ADMIN") cargarUsuarios();
+
+                    // REVISIÓN DE PERMISOS: Asegúrate que rol_app sea "ADMIN"
+                    if (d.rol_app === "ADMIN") {
+                        document.getElementById('seccionDirectorio').classList.remove('d-none');
+                        document.getElementById('btnNuevoRegistro').classList.remove('d-none');
+                        cargarUsuarios();
+                        prepararSelectCobro();
+                    }
                 }
             } catch (e) { console.error(e); }
             finally {
@@ -202,107 +184,76 @@
             }
         });
 
-        document.getElementById('selectorAnio').addEventListener('change', (e) => {
-            generarCalendario(deudaFinalGlobal, estadoGlobal, e.target.value);
-        });
-
-        function generarCalendario(deudaDolares, estado, anioVer) {
+        function generarCalendario(deuda, estado, anio) {
             const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-            const contenedor = document.getElementById('calendarioPagos');
+            const cont = document.getElementById('calendarioPagos');
             const hoy = new Date();
-            const mesHoy = hoy.getMonth();
-            const anioHoy = hoy.getFullYear();
-            
-            let mesesDeudaReal = Math.floor(deudaDolares / 5);
-            contenedor.innerHTML = "";
+            let mesesDeudaReal = Math.floor(deuda / 5);
+            cont.innerHTML = "";
 
             meses.forEach((nombre, i) => {
-                let color = "bg-secondary text-muted"; // Futuro
+                let color = "bg-secondary text-muted";
                 let estilo = "";
-
-                if (parseInt(anioVer) < anioHoy || (parseInt(anioVer) === anioHoy && i <= mesHoy)) {
-                    let diff = ((anioHoy - parseInt(anioVer)) * 12) + (mesHoy - i);
-
-                    if (diff < mesesDeudaReal) {
-                        // ESTÁ EN DEUDA ACTIVA (1, 2 o 3 meses)
-                        color = "bg-danger text-white";
-                    } else if (estado === "SUSPENDIDO" && diff >= mesesDeudaReal && diff < 12) {
-                        // MESES NULOS (Estaba suspendido, no se cobran)
-                        color = "bg-dark text-muted";
-                        estilo = "opacity: 0.6; border: 1px dashed #444;";
-                        nombre = nombre + " (X)"; 
-                    } else {
-                        // PAGADO
-                        color = "bg-success text-white";
-                    }
+                if (parseInt(anio) < hoy.getFullYear() || (parseInt(anio) === hoy.getFullYear() && i <= hoy.getMonth())) {
+                    let diff = ((hoy.getFullYear() - parseInt(anio)) * 12) + (hoy.getMonth() - i);
+                    if (diff < mesesDeudaReal) { color = "bg-danger text-white"; }
+                    else if (estado === "SUSPENDIDO" && diff >= mesesDeudaReal) { color = "bg-dark text-muted"; estilo="opacity: 0.6;"; nombre += " (X)"; }
+                    else { color = "bg-success text-white"; }
                 }
-                
-                contenedor.innerHTML += `<div class="col-3"><div class="p-2 rounded small fw-bold ${color}" style="${estilo}">${nombre}</div></div>`;
+                cont.innerHTML += `<div class="col-3"><div class="p-2 rounded small fw-bold ${color}" style="${estilo}">${nombre}</div></div>`;
             });
         }
 
-        async function cargarUsuarios(mesesExtra) {
+        async function cargarUsuarios() {
             const lista = document.getElementById('listaUsuarios');
             const snap = await getDocs(collection(db, "usuarios"));
             lista.innerHTML = "";
-            
             snap.forEach((d) => {
                 const u = d.data();
-                let deudaBase = Number(u.deuda_total) || 0;
-                let mult = (u.estado_membresia === "SUSPENDIDO") ? 0 : 5;
-                
-                // Calculamos la deuda real de cada uno a fecha de hoy
-                let deudaRealHoy = deudaBase + (mesesExtra * mult);
-
                 lista.innerHTML += `
                     <div class="miembro-card">
                         <div class="d-flex align-items-center">
                             <div class="avatar">${u.nombre.charAt(0).toUpperCase()}</div>
-                            <div>
-                                <h6 class="mb-0 fw-bold">${u.nombre}</h6>
-                                <small class="text-muted">Deuda: $${deudaRealHoy} - ${u.estado_membresia}</small>
-                            </div>
+                            <div><h6 class="mb-0 fw-bold">${u.nombre}</h6><small class="text-muted">$${u.deuda_total} - ${u.estado_membresia}</small></div>
                         </div>
-                        <button class="btn btn-sm btn-outline-light" onclick="window.abrirEditor('${d.id}', ${deudaRealHoy}, '${u.estado_membresia}')">Editar</button>
                     </div>`;
             });
         }
 
-        // GUARDAR NUEVO MIEMBRO
-        document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
+        async function prepararSelectCobro() {
+            const select = document.getElementById('selectCobroMiembro');
+            const snap = await getDocs(collection(db, "usuarios"));
+            select.innerHTML = '<option value="">Seleccione Miembro...</option>';
+            snap.forEach(d => { select.innerHTML += `<option value="${d.id}">${d.data().nombre}</option>`; });
+        }
+
+        document.getElementById('formRegistrarPago').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const btn = document.getElementById('btnGuardarMiembro');
-            btn.innerText = "Registrando..."; btn.disabled = true;
-            try {
-                const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
-                await setDoc(doc(db, "usuarios", u.user.uid), {
-                    nombre: document.getElementById('nuevoNombre').value,
-                    email: document.getElementById('nuevoEmail').value,
-                    rango_mg: document.getElementById('nuevoRango').value,
-                    rol_app: document.getElementById('nuevoRol').value,
-                    deuda_total: 0,
-                    estado_membresia: "ACTIVO",
-                    fecha_anclaje: new Date().toISOString().split('T')[0] // Se ancla a hoy
-                });
-                await signOut(authSecundaria);
-                location.reload();
-            } catch (err) { alert(err.message); btn.innerText = "Guardar Miembro"; btn.disabled = false; }
+            const uid = document.getElementById('selectCobroMiembro').value;
+            const monto = Number(document.getElementById('montoPago').value);
+            const ref = doc(db, "usuarios", uid);
+            const d = (await getDoc(ref)).data();
+            let nueva = (d.deuda_total || 0) - monto;
+            if (nueva < 0) nueva = 0;
+            await updateDoc(ref, { deuda_total: nueva, estado_membresia: nueva >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
+            location.reload();
         });
 
-        window.abrirEditor = (uid, deuda, estado) => {
-            document.getElementById('editUid').value = uid;
-            document.getElementById('editDeuda').value = deuda;
-            document.getElementById('editEstado').value = estado;
-            new bootstrap.Modal(document.getElementById('modalEditarMiembro')).show();
-        };
-
-        document.getElementById('formEditarMiembro').addEventListener('submit', async (e) => {
+        document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const uid = document.getElementById('editUid').value;
-            await updateDoc(doc(db, "usuarios", uid), {
-                deuda_total: Number(document.getElementById('editDeuda').value),
-                estado_membresia: document.getElementById('editEstado').value
+            const email = document.getElementById('nuevoEmail').value;
+            const pass = document.getElementById('nuevoPass').value;
+            const u = await createUserWithEmailAndPassword(authSecundaria, email, pass);
+            await setDoc(doc(db, "usuarios", u.user.uid), {
+                nombre: document.getElementById('nuevoNombre').value,
+                email: email,
+                rango_mg: document.getElementById('nuevoRango').value,
+                rol_app: document.getElementById('nuevoRol').value,
+                deuda_total: 0,
+                estado_membresia: "ACTIVO",
+                fecha_anclaje: new Date().toISOString().split('T')[0]
             });
+            await signOut(authSecundaria);
             location.reload();
         });
 

@@ -129,35 +129,37 @@
         const appSecundaria = initializeApp(firebaseConfig, "AppSecundaria");
         const authSecundaria = getAuth(appSecundaria);
 
+        // 1. CONTROL DE ACCESO Y LECTURA DE PERFIL REAL
         onAuthStateChanged(auth, async (user) => {
-            if (!user) { window.location.href = "index.html"; } 
-            else {
+            if (!user) { 
+                window.location.href = "index.html"; 
+            } else {
                 const userDoc = await getDoc(doc(db, "usuarios", user.uid));
                 if (userDoc.exists()) {
                     const d = userDoc.data();
                     
-                    // 1. Mostrar Deuda Real y Nombre
+                    // Mostramos nombre y deuda del campo real
                     document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
                     document.getElementById('miDeudaTotal').innerText = "$" + (d.deuda_heredada || 0);
                     document.getElementById('txtRolMenu').innerText = d.rol_app;
 
-                    // 2. Lógica de Suspensión Visual
+                    // LÓGICA DE SUSPENSIÓN: Si el campo es "SUSPENDIDO", mostramos el letrero
+                    const indicador = document.getElementById('indicadorSuspension');
                     if(d.estado_membresia === "SUSPENDIDO") {
-                        document.getElementById('indicadorSuspension').classList.remove('d-none');
+                        indicador.classList.remove('d-none');
+                    } else {
+                        indicador.classList.add('d-none');
                     }
 
-                    // 3. Pintar Calendario (Simulado por ahora hasta crear estado_anual)
-                    generarCalendario(d.estado_membresia);
+                    // LLAMADA AL CALENDARIO REAL
+                    // Le pasamos el estado y los meses que tenga pagados (si no tiene, enviamos array vacío)
+                    generarCalendarioReal(d.estado_membresia, d.meses_pagados_2026 || []);
 
-                    // 4. Permisos
-                    if (d.rol_app === "ADMIN") {
-                        document.getElementById('btnFabNuevo').classList.remove('d-none');
+                    // Permisos de interfaz
+                    if (d.rol_app === "ADMIN" || d.rol_app === "TESORERO") {
                         document.getElementById('seccionDirectorio').classList.remove('d-none');
                         document.getElementById('btnAbrirCobro').classList.remove('d-none');
-                        cargarUsuarios();
-                    } else if (d.rol_app === "TESORERO") {
-                        document.getElementById('seccionDirectorio').classList.remove('d-none');
-                        document.getElementById('btnAbrirCobro').classList.remove('d-none');
+                        if(d.rol_app === "ADMIN") document.getElementById('btnFabNuevo').classList.remove('d-none');
                         cargarUsuarios();
                     }
 
@@ -167,22 +169,40 @@
             }
         });
 
-        function generarCalendario(estado) {
-            const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+        // 2. FUNCIÓN DEL CALENDARIO CORREGIDA
+        function generarCalendarioReal(estado, mesesPagados) {
+            const nombresMeses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
             const contenedor = document.getElementById('calendarioPagos');
+            const mesActual = new Date().getMonth(); // 0 = Enero, 1 = Feb, 2 = Marzo...
+            
             contenedor.innerHTML = "";
-            meses.forEach((m, index) => {
-                let estilo = "bg-secondary text-muted"; // Futuro
-                let decoration = "";
-                
-                // Ejemplo para José: Ene y Feb pagados. Marzo en adelante suspendido si aplica.
-                if(index < 2) estilo = "bg-success text-white shadow-sm";
-                if(index >= 2 && estado === "SUSPENDIDO") {
-                    estilo = "bg-dark text-muted"; 
-                    decoration = "text-decoration: line-through;";
+
+            nombresMeses.forEach((nombre, index) => {
+                let claseColor = "bg-secondary text-muted"; // Color por defecto (Gris/Futuro)
+                let estiloExtra = "";
+
+                // REGLA 1: ¿Está pagado? (Verde)
+                if (mesesPagados.includes(index + 1)) {
+                    claseColor = "bg-success text-white shadow-sm";
+                } 
+                // REGLA 2: ¿Es un mes que ya pasó o es el actual?
+                else if (index <= mesActual) {
+                    // Si está SUSPENDIDO, no se pone rojo, se tacha (Gris oscuro)
+                    if (estado === "SUSPENDIDO") {
+                        claseColor = "bg-dark text-muted";
+                        estiloExtra = "text-decoration: line-through; opacity: 0.5;";
+                    } else {
+                        // Si está ACTIVO y no está pagado, se pone Rojo
+                        claseColor = "bg-danger text-white shadow-sm";
+                    }
                 }
-                
-                contenedor.innerHTML += `<div class="col-3"><div class="p-2 rounded small fw-bold ${estilo}" style="${decoration}">${m}</div></div>`;
+
+                contenedor.innerHTML += `
+                    <div class="col-3">
+                        <div class="p-2 rounded small fw-bold ${claseColor}" style="${estiloExtra}">
+                            ${nombre}
+                        </div>
+                    </div>`;
             });
         }
 

@@ -32,15 +32,14 @@ const cambiarVista = (vista) => {
     if (vista === 'personal') {
         vPers.classList.remove('d-none');
         vGest.classList.add('d-none');
-        bPers.classList.add('active'); // Se pone rojo
-        bGest.classList.remove('active'); // Se pone gris
+        bPers.classList.add('active'); // Aquí se activa el color del SVG
+        bGest.classList.remove('active');
         fab.classList.add('d-none');
     } else {
         vPers.classList.add('d-none');
         vGest.classList.remove('d-none');
         bPers.classList.remove('active');
-        bGest.classList.add('active');
-        // Solo mostramos el + si es ADMIN
+        bGest.classList.add('active'); // Aquí se activa el color del SVG
         if (rolUsuarioActual === "ADMIN") fab.classList.remove('d-none');
     }
 };

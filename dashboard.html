@@ -44,20 +44,51 @@
         <div id="vistaGestion" class="container mt-4 d-none">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2 class="fw-bold mb-0">Gestión</h2>
-                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCobro">Registrar Pago</button>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCobroReal">Registrar Pago</button>
             </div>
             <div id="listaUsuarios"></div>
         </div>
 
-        <button id="btnNuevoRegistro" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalRegistro">+</button>
+        <button id="btnNuevoRegistro" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalRegistroPro">+</button>
 
         <div id="navAdmin" class="nav-admin d-none">
-            <button onclick="cambiarVista('personal')" class="nav-item active" id="btnNavPers">
-                <i>👤</i><span>Mi Estado</span>
-            </button>
-            <button onclick="cambiarVista('gestion')" class="nav-item" id="btnNavGest">
-                <i>💰</i><span>Gestión</span>
-            </button>
+            <button id="btnNavPers" class="nav-item active"><i>👤</i><span>Mi Estado</span></button>
+            <button id="btnNavGest" class="nav-item"><i>💰</i><span>Gestión</span></button>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalRegistroPro" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0"><h5 class="fw-bold">Nuevo Miembro</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="formNuevoMiembro">
+                        <input type="text" id="nuevoNombre" class="form-control mb-3" placeholder="Nombre Completo" required>
+                        <input type="email" id="nuevoEmail" class="form-control mb-3" placeholder="Correo" required>
+                        <input type="password" id="nuevoPass" class="form-control mb-3" placeholder="Clave temporal" required>
+                        <div class="row">
+                            <div class="col-6"><select id="nuevoRango" class="form-select mb-3"><option value="Rookie">Rookie</option><option value="Miembro">Miembro</option><option value="Tesorero">Tesorero</option></select></div>
+                            <div class="col-6"><select id="nuevoRol" class="form-select mb-3"><option value="ESTANDAR">Estandar</option><option value="ADMIN">Admin</option></select></div>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100 fw-bold">Guardar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalCobroReal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0"><h5 class="fw-bold text-success">Registrar Pago</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="formRegistrarPago">
+                        <select id="selectCobroMiembro" class="form-select mb-3" required></select>
+                        <input type="number" id="montoPago" class="form-control mb-3" placeholder="Monto $" required>
+                        <button type="submit" class="btn btn-success w-100 fw-bold">Confirmar Pago</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -45,7 +45,7 @@
                         </select>
                     </div>
                     <div class="text-end">
-                        <small class="text-white d-block">Deuda Histórica22</small>
+                        <small class="text-white d-block">Deuda Histórica</small>
                         <h4 class="text-danger fw-bold mb-0" id="miDeudaTotal">$0</h4>
                     </div>
                 </div>
@@ -145,45 +145,36 @@
                 if (userDoc.exists()) {
                     const d = userDoc.data();
                     
-                    // 1. OBTENER VALORES ACTUALES
+                    // 1. VALORES ACTUALES
                     let deudaBaseOriginal = Number(d.deuda_total) || 0;
                     const hoy = new Date();
                     
-                    // Si no existe fecha_anclaje en la BD, usamos el 1 de Marzo 2026 por defecto
-                    // Importante: El formato en la BD debe ser "YYYY-MM-DD"
+                    // Leemos la fecha de anclaje de la base de datos
                     const fechaAnclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
 
-                    // 2. CALCULAR DIFERENCIA DE MESES REAL
-                    // Esta fórmula cuenta cuántos meses han pasado desde el anclaje hasta hoy
+                    // 2. CALCULO DE MESES (Diferencia simple)
                     let mesesTranscurridos = ((hoy.getFullYear() - fechaAnclaje.getFullYear()) * 12) + (hoy.getMonth() - fechaAnclaje.getMonth());
                     
-                    // Si el día de hoy es menor al día de gracia (5), no contamos el mes actual todavía
-                    if (hoy.getDate() <= 5 && mesesTranscurridos > 0) {
-                        mesesTranscurridos--;
-                    }
-
+                    // Forzamos que si el mes es mayor, la deuda suba sí o sí en este test
                     if (mesesTranscurridos < 0) mesesTranscurridos = 0;
 
-                    // 3. CALCULAR NUEVA DEUDA
+                    // 3. CALCULO DE DINERO
                     let multiplicador = (d.estado_membresia === "SUSPENDIDO") ? 0 : 5;
                     let deudaCalculada = deudaBaseOriginal + (mesesTranscurridos * multiplicador);
 
-                    console.log("Meses detectados:", mesesTranscurridos, "Deuda calculada:", deudaCalculada);
-
-                    // 4. GUARDADO AUTOMÁTICO EN BASE DE DATOS
-                    // Solo actualizamos si realmente hay una deuda nueva que registrar
-                    if (mesesTranscurridos > 0 && d.estado_membresia !== "SUSPENDIDO") {
+                    // 4. ACTUALIZACIÓN REAL EN FIREBASE
+                    // Si la deuda calculada es mayor a la que hay guardada, la grabamos ya mismo
+                    if (deudaCalculada > deudaBaseOriginal) {
                         await updateDoc(userRef, {
                             deuda_total: deudaCalculada,
-                            // Movemos el anclaje al mes actual para que no vuelva a sumar hasta el próximo mes
-                            fecha_anclaje: hoy.toISOString().split('T')[0] 
+                            fecha_anclaje: hoy.toISOString().split('T')[0] // Se actualiza el anclaje a hoy
                         });
                         deudaFinalGlobal = deudaCalculada;
                     } else {
-                        deudaFinalGlobal = deudaCalculada;
+                        deudaFinalGlobal = deudaBaseOriginal;
                     }
 
-                    // 5. ACTUALIZAR INTERFAZ
+                    // 5. REFRESCAR INTERFAZ
                     estadoGlobal = d.estado_membresia || "ACTIVO";
                     document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
                     document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
@@ -199,10 +190,9 @@
                         document.getElementById('btnFabNuevo').classList.remove('d-none');
                         cargarUsuarios(); 
                     }
-
                 }
             } catch (e) { 
-                console.error("Error en sincronización:", e); 
+                console.error("Error:", e); 
             } finally {
                 document.getElementById('pantallaCarga').classList.add('d-none');
                 document.getElementById('appContent').classList.remove('d-none');

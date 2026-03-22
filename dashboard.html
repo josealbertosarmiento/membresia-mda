@@ -61,7 +61,30 @@
             </div>
         </div>
 
-        <button id="btnFabNuevo" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalEditarMiembro">+</button>
+        <button id="btnFabNuevo" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalNuevoMiembro">+</button>
+
+        <div class="modal fade" id="modalNuevoMiembro" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="fw-bold">Nuevo Registro</h5>
+                        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="formNuevoMiembro">
+                            <input type="text" id="nuevoNombre" class="form-control mb-3" placeholder="Nombre" required>
+                            <input type="email" id="nuevoEmail" class="form-control mb-3" placeholder="Correo" required>
+                            <input type="password" id="nuevoPass" class="form-control mb-3" placeholder="Clave temporal" required>
+                            <div class="row">
+                                <div class="col-6"><select id="nuevoRango" class="form-select mb-3"><option value="Rookie">Rookie</option><option value="Miembro">Miembro</option><option value="Secretario">Secretario</option><option value="Tesorero">Tesorero</option><option value="Presidente">Presidente</option></select></div>
+                                <div class="col-6"><select id="nuevoRol" class="form-select mb-3"><option value="ESTANDAR">Estandar</option><option value="ADMIN">Admin</option></select></div>
+                            </div>
+                            <button type="submit" id="btnGuardarMiembro" class="btn btn-danger w-100 fw-bold py-2">Guardar Miembro</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="modal fade" id="modalEditarMiembro" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
@@ -89,8 +112,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCEX-TTUzHwBzmfOqfG1R7C-0n5kVPGXh4",
@@ -104,33 +127,34 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        
+        // App secundaria para crear usuarios sin cerrar la sesión actual
+        const appSecundaria = initializeApp(firebaseConfig, "Secondary");
+        const authSecundaria = getAuth(appSecundaria);
 
-        // Variables globales para el selector de año
         let deudaFinalGlobal = 0;
         let estadoGlobal = "ACTIVO";
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) { window.location.href = "index.html"; return; } 
-            
             try {
                 const userDoc = await getDoc(doc(db, "usuarios", user.uid));
                 if (userDoc.exists()) {
                     const d = userDoc.data();
                     
-                    // Lógica de Deuda Automática
+                    // LÓGICA DE DEUDA AUTOMÁTICA
                     let deudaBase = Number(d.deuda_total) || 0;
                     const hoy = new Date();
-                    const mesCarga = 2; // Marzo
-                    const anioCarga = 2026;
-                    let mesesTranscurridos = ((hoy.getFullYear() - anioCarga) * 12) + (hoy.getMonth() - mesCarga);
+                    const fechaAnclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje) : new Date(2026, 2, 1);
+                    
+                    let mesesTranscurridos = ((hoy.getFullYear() - fechaAnclaje.getFullYear()) * 12) + (hoy.getMonth() - fechaAnclaje.getMonth());
                     if (mesesTranscurridos < 0) mesesTranscurridos = 0;
 
                     let multiplicador = (d.estado_membresia === "SUSPENDIDO") ? 0 : 5;
                     deudaFinalGlobal = deudaBase + (mesesTranscurridos * multiplicador);
                     estadoGlobal = d.estado_membresia || "ACTIVO";
 
-                    // Interfaz
-                    document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
+                    document.getElementById('txtNombreUsuario').innerText = "Hola, " + (d.nombre || "Usuario");
                     document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
                     document.getElementById('txtRolMenu').innerText = d.rol_app || "MIEMBRO";
 
@@ -139,26 +163,19 @@
 
                     generarCalendario(deudaFinalGlobal, estadoGlobal, "2026");
 
-                    // Mostrar secciones si es ADMIN
                     if (d.rol_app === "ADMIN") {
                         document.getElementById('seccionDirectorio').classList.remove('d-none');
                         document.getElementById('btnFabNuevo').classList.remove('d-none');
                         cargarUsuarios();
                     }
-
-                    // IMPORTANTE: Quitamos carga
-                    document.getElementById('pantallaCarga').classList.add('d-none');
-                    document.getElementById('appContent').classList.remove('d-none');
-                } else {
-                    alert("No se encontró perfil de usuario.");
                 }
-            } catch (e) {
-                console.error(e);
+            } catch (e) { console.error(e); }
+            finally {
                 document.getElementById('pantallaCarga').classList.add('d-none');
+                document.getElementById('appContent').classList.remove('d-none');
             }
         });
 
-        // Selector de año funcional
         document.getElementById('selectorAnio').addEventListener('change', (e) => {
             generarCalendario(deudaFinalGlobal, estadoGlobal, e.target.value);
         });
@@ -167,8 +184,8 @@
             const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
             const contenedor = document.getElementById('calendarioPagos');
             const hoy = new Date();
-            const diaHoy = hoy.getDate();
             const mesHoy = hoy.getMonth();
+            const diaHoy = hoy.getDate();
             const anioHoy = hoy.getFullYear();
             
             let mesesADeber = Math.floor(deudaDolares / 5);
@@ -179,8 +196,8 @@
                 let estilo = "";
 
                 if (parseInt(anioVer) < anioHoy || (parseInt(anioVer) === anioHoy && i <= mesHoy)) {
-                    let esMesActualYGracia = (parseInt(anioVer) === anioHoy && i === mesHoy && diaHoy <= 5);
-                    if (esMesActualYGracia) {
+                    // Gracia los primeros 5 días
+                    if (parseInt(anioVer) === anioHoy && i === mesHoy && diaHoy <= 5) {
                         color = "bg-secondary text-muted";
                     } else {
                         let diff = ((anioHoy - parseInt(anioVer)) * 12) + (mesHoy - i);
@@ -196,6 +213,7 @@
             });
         }
 
+        // FUNCIÓN PARA CARGAR LISTA
         async function cargarUsuarios() {
             const lista = document.getElementById('listaUsuarios');
             const snap = await getDocs(collection(db, "usuarios"));
@@ -205,13 +223,34 @@
                 lista.innerHTML += `
                     <div class="miembro-card">
                         <div class="d-flex align-items-center">
-                            <div class="avatar">${u.nombre.charAt(0).toUpperCase()}</div>
-                            <div><h6 class="mb-0 fw-bold">${u.nombre}</h6><small class="text-muted">$${u.deuda_total || 0} - ${u.estado_membresia}</small></div>
+                            <div class="avatar">${(u.nombre || "M").charAt(0).toUpperCase()}</div>
+                            <div><h6 class="mb-0 fw-bold">${u.nombre || "Sin Nombre"}</h6><small class="text-muted">$${u.deuda_total || 0} - ${u.estado_membresia}</small></div>
                         </div>
                         <button class="btn btn-sm btn-outline-light" onclick="window.abrirEditor('${d.id}', ${u.deuda_total || 0}, '${u.estado_membresia}')">Editar</button>
                     </div>`;
             });
         }
+
+        // GUARDAR NUEVO MIEMBRO
+        document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnGuardarMiembro');
+            btn.innerText = "Registrando..."; btn.disabled = true;
+            try {
+                const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
+                await setDoc(doc(db, "usuarios", u.user.uid), {
+                    nombre: document.getElementById('nuevoNombre').value,
+                    email: document.getElementById('nuevoEmail').value,
+                    rango_mg: document.getElementById('nuevoRango').value,
+                    rol_app: document.getElementById('nuevoRol').value,
+                    deuda_total: 0,
+                    estado_membresia: "ACTIVO",
+                    fecha_anclaje: new Date().toISOString().split('T')[0] // Se ancla a hoy
+                });
+                await signOut(authSecundaria);
+                location.reload();
+            } catch (err) { alert(err.message); btn.innerText = "Guardar Miembro"; btn.disabled = false; }
+        });
 
         window.abrirEditor = (uid, deuda, estado) => {
             document.getElementById('editUid').value = uid;

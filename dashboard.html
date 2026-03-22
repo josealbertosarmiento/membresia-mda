@@ -45,7 +45,7 @@
                         </select>
                     </div>
                     <div class="text-end">
-                        <small class="text-white d-block">Deuda Histórica</small>
+                        <small class="text-white d-block">Deuda Histórica22</small>
                         <h4 class="text-danger fw-bold mb-0" id="miDeudaTotal">$0</h4>
                     </div>
                 </div>
@@ -145,27 +145,37 @@
                 if (userDoc.exists()) {
                     const d = userDoc.data();
                     
-                    // 1. DATA BASE
+                    // 1. OBTENER VALORES ACTUALES
                     let deudaBaseOriginal = Number(d.deuda_total) || 0;
                     const hoy = new Date();
                     
-                    // Usamos la fecha_anclaje de la BD o por defecto Marzo 2026
-                    const fechaReferencia = d.fecha_anclaje ? new Date(d.fecha_anclaje) : new Date(2026, 2, 1);
+                    // Si no existe fecha_anclaje en la BD, usamos el 1 de Marzo 2026 por defecto
+                    // Importante: El formato en la BD debe ser "YYYY-MM-DD"
+                    const fechaAnclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
 
-                    // 2. CALCULO DE MESES
-                    let mesesTranscurridos = ((hoy.getFullYear() - fechaReferencia.getFullYear()) * 12) + (hoy.getMonth() - fechaReferencia.getMonth());
+                    // 2. CALCULAR DIFERENCIA DE MESES REAL
+                    // Esta fórmula cuenta cuántos meses han pasado desde el anclaje hasta hoy
+                    let mesesTranscurridos = ((hoy.getFullYear() - fechaAnclaje.getFullYear()) * 12) + (hoy.getMonth() - fechaAnclaje.getMonth());
+                    
+                    // Si el día de hoy es menor al día de gracia (5), no contamos el mes actual todavía
+                    if (hoy.getDate() <= 5 && mesesTranscurridos > 0) {
+                        mesesTranscurridos--;
+                    }
+
                     if (mesesTranscurridos < 0) mesesTranscurridos = 0;
 
-                    // 3. CALCULO DE DEUDA REAL
+                    // 3. CALCULAR NUEVA DEUDA
                     let multiplicador = (d.estado_membresia === "SUSPENDIDO") ? 0 : 5;
                     let deudaCalculada = deudaBaseOriginal + (mesesTranscurridos * multiplicador);
 
-                    // --- FUNCIÓN DE AUTO-GUARDADO ---
-                    // Si la deuda calculada es mayor a la que hay en la BD, la actualizamos automáticamente
-                    if (deudaCalculada > deudaBaseOriginal && d.estado_membresia !== "SUSPENDIDO") {
+                    console.log("Meses detectados:", mesesTranscurridos, "Deuda calculada:", deudaCalculada);
+
+                    // 4. GUARDADO AUTOMÁTICO EN BASE DE DATOS
+                    // Solo actualizamos si realmente hay una deuda nueva que registrar
+                    if (mesesTranscurridos > 0 && d.estado_membresia !== "SUSPENDIDO") {
                         await updateDoc(userRef, {
                             deuda_total: deudaCalculada,
-                            // Actualizamos el anclaje al mes actual para que no siga sumando doble
+                            // Movemos el anclaje al mes actual para que no vuelva a sumar hasta el próximo mes
                             fecha_anclaje: hoy.toISOString().split('T')[0] 
                         });
                         deudaFinalGlobal = deudaCalculada;
@@ -173,9 +183,8 @@
                         deudaFinalGlobal = deudaCalculada;
                     }
 
+                    // 5. ACTUALIZAR INTERFAZ
                     estadoGlobal = d.estado_membresia || "ACTIVO";
-
-                    // Interfaz
                     document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
                     document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
                     document.getElementById('txtRolMenu').innerText = d.rol_app || "MIEMBRO";
@@ -188,13 +197,16 @@
                     if (d.rol_app === "ADMIN") {
                         document.getElementById('seccionDirectorio').classList.remove('d-none');
                         document.getElementById('btnFabNuevo').classList.remove('d-none');
-                        cargarUsuarios(mesesTranscurridos); 
+                        cargarUsuarios(); 
                     }
 
-                    document.getElementById('pantallaCarga').classList.add('d-none');
-                    document.getElementById('appContent').classList.remove('d-none');
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error("Error en sincronización:", e); 
+            } finally {
+                document.getElementById('pantallaCarga').classList.add('d-none');
+                document.getElementById('appContent').classList.remove('d-none');
+            }
         });
 
         document.getElementById('selectorAnio').addEventListener('change', (e) => {

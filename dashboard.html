@@ -137,24 +137,40 @@
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) { window.location.href = "index.html"; return; } 
+            
             try {
-                const userDoc = await getDoc(doc(db, "usuarios", user.uid));
+                const userRef = doc(db, "usuarios", user.uid);
+                const userDoc = await getDoc(userRef);
+
                 if (userDoc.exists()) {
                     const d = userDoc.data();
                     
-                    // LÓGICA DE DEUDA AUTOMÁTICA
-                    let deudaBase = Number(d.deuda_total) || 0;
+                    // --- LÓGICA DE ACTUALIZACIÓN AUTOMÁTICA ---
                     const hoy = new Date();
-                    const fechaAnclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje) : new Date(2026, 2, 1);
-                    
-                    let mesesTranscurridos = ((hoy.getFullYear() - fechaAnclaje.getFullYear()) * 12) + (hoy.getMonth() - fechaAnclaje.getMonth());
+                    const mesActual = hoy.getMonth();
+                    const anioActual = hoy.getFullYear();
+
+                    // Definimos cuándo fue la última vez que se cargó la deuda (Marzo 2026)
+                    // En el futuro, esto podría venir de un campo 'ultima_actualizacion' en la BD
+                    const mesCargaBase = 2; // Marzo
+                    const anioCargaBase = 2026;
+
+                    // Calculamos meses reales que han pasado
+                    let mesesTranscurridos = ((anioActual - anioCargaBase) * 12) + (mesActual - mesCargaBase);
                     if (mesesTranscurridos < 0) mesesTranscurridos = 0;
 
+                    // Si han pasado meses y el usuario está ACTIVO, calculamos la nueva deuda base
+                    let deudaBaseOriginal = Number(d.deuda_total) || 0;
                     let multiplicador = (d.estado_membresia === "SUSPENDIDO") ? 0 : 5;
-                    deudaFinalGlobal = deudaBase + (mesesTranscurridos * multiplicador);
+                    
+                    // Esta es la deuda que debería tener grabada en la BD
+                    let nuevaDeudaCalculada = deudaBaseOriginal + (mesesTranscurridos * multiplicador);
+
+                    // INTERFAZ
+                    deudaFinalGlobal = nuevaDeudaCalculada;
                     estadoGlobal = d.estado_membresia || "ACTIVO";
 
-                    document.getElementById('txtNombreUsuario').innerText = "Hola, " + (d.nombre || "Usuario");
+                    document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
                     document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
                     document.getElementById('txtRolMenu').innerText = d.rol_app || "MIEMBRO";
 
@@ -166,14 +182,13 @@
                     if (d.rol_app === "ADMIN") {
                         document.getElementById('seccionDirectorio').classList.remove('d-none');
                         document.getElementById('btnFabNuevo').classList.remove('d-none');
-                        cargarUsuarios();
+                        cargarUsuarios(mesesTranscurridos); // Pasamos los meses para actualizar la lista también
                     }
+
+                    document.getElementById('pantallaCarga').classList.add('d-none');
+                    document.getElementById('appContent').classList.remove('d-none');
                 }
             } catch (e) { console.error(e); }
-            finally {
-                document.getElementById('pantallaCarga').classList.add('d-none');
-                document.getElementById('appContent').classList.remove('d-none');
-            }
         });
 
         document.getElementById('selectorAnio').addEventListener('change', (e) => {
@@ -213,20 +228,29 @@
             });
         }
 
-        // FUNCIÓN PARA CARGAR LISTA
-        async function cargarUsuarios() {
+        async function cargarUsuarios(mesesExtra) {
             const lista = document.getElementById('listaUsuarios');
             const snap = await getDocs(collection(db, "usuarios"));
             lista.innerHTML = "";
+            
             snap.forEach((d) => {
                 const u = d.data();
+                let deudaBase = Number(u.deuda_total) || 0;
+                let mult = (u.estado_membresia === "SUSPENDIDO") ? 0 : 5;
+                
+                // Calculamos la deuda real de cada uno a fecha de hoy
+                let deudaRealHoy = deudaBase + (mesesExtra * mult);
+
                 lista.innerHTML += `
                     <div class="miembro-card">
                         <div class="d-flex align-items-center">
-                            <div class="avatar">${(u.nombre || "M").charAt(0).toUpperCase()}</div>
-                            <div><h6 class="mb-0 fw-bold">${u.nombre || "Sin Nombre"}</h6><small class="text-muted">$${u.deuda_total || 0} - ${u.estado_membresia}</small></div>
+                            <div class="avatar">${u.nombre.charAt(0).toUpperCase()}</div>
+                            <div>
+                                <h6 class="mb-0 fw-bold">${u.nombre}</h6>
+                                <small class="text-muted">Deuda: $${deudaRealHoy} - ${u.estado_membresia}</small>
+                            </div>
                         </div>
-                        <button class="btn btn-sm btn-outline-light" onclick="window.abrirEditor('${d.id}', ${u.deuda_total || 0}, '${u.estado_membresia}')">Editar</button>
+                        <button class="btn btn-sm btn-outline-light" onclick="window.abrirEditor('${d.id}', ${deudaRealHoy}, '${u.estado_membresia}')">Editar</button>
                     </div>`;
             });
         }

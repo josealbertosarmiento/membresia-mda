@@ -197,7 +197,7 @@ function generarCalendario(deuda, estado, anio) {
     let mD = Math.floor(deuda / 5);
     cont.innerHTML = "";
     meses.forEach((n, i) => {
-        let col = "bg-secondary text-muted"; let es = "";
+        let col = "bg-secondary text-white"; let es = "";
         if (parseInt(anio) < hoy.getFullYear() || (parseInt(anio) === hoy.getFullYear() && i <= hoy.getMonth())) {
             let diff = ((hoy.getFullYear() - parseInt(anio)) * 12) + (hoy.getMonth() - i);
             if (diff < mD) col = estado === "SUSPENDIDO" ? "bg-dark text-white" : "bg-danger text-white";

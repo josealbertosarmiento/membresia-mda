@@ -97,27 +97,35 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('appContent').classList.remove('d-none');
 });
 
-// BALANCE
+// BALANCE GLOBAL (Lo que hay en caja + lo que falta por cobrar)
 async function cargarBalanceGlobal() {
     try {
         const snap = await getDocs(collection(db, "usuarios"));
-        let porCobrar = 0; let recaudado = 0;
+        let porCobrar = 0; let recaudadoApp = 0;
         snap.forEach(d => {
             porCobrar += (d.data().deuda_total || 0);
-            recaudado += (d.data().acumulado_pagado || 0);
+            recaudadoApp += (d.data().acumulado_pagado || 0);
         });
+        
+        // Obtenemos el Saldo Inicial configurado por el Tesorero
         const docFin = await getDoc(doc(db, "config", "finanzas"));
         let saldoIni = docFin.exists() ? docFin.data().caja_inicial : 0;
-        document.getElementById('totalEnCaja').innerText = "$" + (saldoIni + recaudado);
+        
+        // Dinero en Mano = Saldo Inicial + Todo lo pagado a través de la App
+        document.getElementById('totalEnCaja').innerText = "$" + (saldoIni + recaudadoApp);
         document.getElementById('totalPorCobrar').innerText = "$" + porCobrar;
-    } catch (e) { console.log(e); }
+    } catch (e) { console.log("Error balance:", e); }
 }
 
-// CAJA INICIAL
+// CAJA INICIAL (Vaciado inicial de fondos físicos)
 document.getElementById('formCajaInicial').addEventListener('submit', async (e) => {
     e.preventDefault();
     const monto = Number(document.getElementById('montoCajaInicial').value);
-    await setDoc(doc(db, "config", "finanzas"), { caja_inicial: monto }, { merge: true });
+    await setDoc(doc(db, "config", "finanzas"), { 
+        caja_inicial: monto,
+        fecha_vaciado: new Date().toISOString()
+    }, { merge: true });
+    alert("¡Saldo inicial de tesorería registrado!");
     location.reload();
 });
 
@@ -140,7 +148,7 @@ function generarCalendario(deuda, estado, anio) {
     });
 }
 
-// CARGAR LISTA
+// CARGAR LISTA GESTIÓN
 async function cargarUsuarios() {
     const lista = document.getElementById('listaUsuarios');
     const snap = await getDocs(collection(db, "usuarios"));
@@ -166,11 +174,15 @@ document.getElementById('formEditarSaldo').addEventListener('submit', async (e) 
     e.preventDefault();
     const uid = document.getElementById('editUid').value;
     const monto = Number(document.getElementById('nuevoMontoManual').value);
-    await updateDoc(doc(db, "usuarios", uid), { deuda_total: monto, estado_membresia: monto >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
+    await updateDoc(doc(db, "usuarios", uid), { 
+        deuda_total: monto, 
+        estado_membresia: monto >= 20 ? "SUSPENDIDO" : "ACTIVO", 
+        fecha_anclaje: new Date().toISOString().split('T')[0] 
+    });
     location.reload();
 });
 
-// REGISTRO
+// REGISTRO DE NUEVO MIEMBRO
 document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSubmitRegistro');
@@ -178,15 +190,23 @@ document.getElementById('formNuevoMiembro').addEventListener('submit', async (e)
     try {
         const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
         await setDoc(doc(db, "usuarios", u.user.uid), {
-            nombre: document.getElementById('nuevoNombre').value, cedula: document.getElementById('nuevaCedula').value, email: document.getElementById('nuevoEmail').value,
-            telefono: document.getElementById('nuevoTel').value, capitulo: document.getElementById('nuevoCapitulo').value, rango_mg: document.getElementById('nuevoRango').value,
-            rol_app: document.getElementById('nuevoRol').value, deuda_total: 0, acumulado_pagado: 0, estado_membresia: "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0]
+            nombre: document.getElementById('nuevoNombre').value, 
+            cedula: document.getElementById('nuevaCedula').value, 
+            email: document.getElementById('nuevoEmail').value,
+            telefono: document.getElementById('nuevoTel').value, 
+            capitulo: document.getElementById('nuevoCapitulo').value, 
+            rango_mg: document.getElementById('nuevoRango').value,
+            rol_app: document.getElementById('nuevoRol').value, 
+            deuda_total: 0, 
+            acumulado_pagado: 0, 
+            estado_membresia: "ACTIVO", 
+            fecha_anclaje: new Date().toISOString().split('T')[0]
         });
         await signOut(authSecundaria); location.reload();
     } catch (err) { alert(err.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
 });
 
-// COBRO
+// COBRO DE MENSUALIDAD (Actualiza usuario y crea historial en 'finanzas')
 async function prepararSelectCobro() {
     const select = document.getElementById('selectCobroMiembro');
     const snap = await getDocs(collection(db, "usuarios"));
@@ -198,12 +218,36 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
     e.preventDefault();
     const uid = document.getElementById('selectCobroMiembro').value;
     const monto = Number(document.getElementById('montoPago').value);
-    const snap = await getDoc(doc(db, "usuarios", uid));
-    const d = snap.data();
-    let nD = Math.max(0, (d.deuda_total || 0) - monto);
-    let nA = (d.acumulado_pagado || 0) + monto;
-    await updateDoc(doc(db, "usuarios", uid), { deuda_total: nD, acumulado_pagado: nA, estado_membresia: nD >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
-    location.reload();
+    
+    try {
+        const refUser = doc(db, "usuarios", uid);
+        const snap = await getDoc(refUser);
+        const d = snap.data();
+        
+        let nD = Math.max(0, (d.deuda_total || 0) - monto);
+        let nA = (d.acumulado_pagado || 0) + monto;
+
+        // 1. Actualizar ficha del miembro
+        await updateDoc(refUser, { 
+            deuda_total: nD, 
+            acumulado_pagado: nA, 
+            estado_membresia: nD >= 20 ? "SUSPENDIDO" : "ACTIVO", 
+            fecha_anclaje: new Date().toISOString().split('T')[0] 
+        });
+
+        // 2. CREAR REGISTRO EN LA COLECCIÓN DE FINANZAS (HISTORIAL)
+        await addDoc(collection(db, "finanzas"), {
+            fecha: new Date().toISOString(),
+            nombre_miembro: d.nombre,
+            usuario_id: uid,
+            monto: monto,
+            tipo: "INGRESO_CUOTA",
+            detalle: "Cobro de membresía"
+        });
+
+        alert("Pago registrado con éxito.");
+        location.reload();
+    } catch (e) { alert("Error cobro: " + e.message); }
 });
 
 document.getElementById('selectorAnio').addEventListener('change', (e) => generarCalendario(deudaGlobal, estadoGlobal, e.target.value));

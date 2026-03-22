@@ -28,11 +28,10 @@
                         <select id="selectorAnio" class="form-select form-select-sm mt-1 bg-dark text-white border-secondary">
                             <option value="2026" selected>Año 2026</option>
                             <option value="2025">Año 2025</option>
-                            <option value="2024">Año 2024</option>
                         </select>
                     </div>
                     <div class="text-end">
-                        <small>Deuda Total</small>
+                        <small>Mi Deuda</small>
                         <h4 class="text-danger fw-bold mb-0" id="miDeudaTotal">$0</h4>
                     </div>
                 </div>
@@ -42,9 +41,25 @@
         </div>
 
         <div id="vistaGestion" class="container mt-4 d-none">
+            <div id="balanceGlobal" class="card bg-dark border-secondary p-3 mb-4 text-center">
+                <div class="row">
+                    <div class="col-6 border-end border-secondary">
+                        <small class="text-muted">En Caja</small>
+                        <h5 class="text-success fw-bold" id="totalEnCaja">$0</h5>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Por Cobrar</small>
+                        <h5 class="text-warning fw-bold" id="totalPorCobrar">$0</h5>
+                    </div>
+                </div>
+            </div>
+
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="fw-bold mb-0">Caja</h2>
-                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCobroReal">Registrar Pago</button>
+                <h2 class="fw-bold mb-0">Miembros</h2>
+                <div id="btnsTesorero" class="d-none">
+                    <button class="btn btn-outline-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#modalCajaInicial">Caja Inicial</button>
+                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalCobroReal">Cobrar</button>
+                </div>
             </div>
             <div id="listaUsuarios"></div>
         </div>
@@ -63,54 +78,14 @@
         </div>
     </div>
 
-    <div class="modal fade" id="modalEditarSaldo" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="modalCajaInicial" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content bg-dark text-white border-secondary">
-                <div class="modal-header border-secondary"><h5 class="fw-bold">Ajustar Saldo Manual</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-header border-secondary"><h5 class="fw-bold">Saldo Inicial Fondo MG</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
-                    <form id="formEditarSaldo">
-                        <input type="hidden" id="editUid">
-                        <label class="small text-muted mb-1">Nueva Deuda Total ($)</label>
-                        <input type="number" id="nuevoMontoManual" class="form-control mb-3" required>
-                        <button type="submit" class="btn btn-danger w-100 fw-bold">ACTUALIZAR SALDO</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalRegistroPro" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content bg-dark text-white">
-                <div class="modal-header border-secondary"><h5>Ficha de Miembro MG</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <form id="formNuevoMiembro">
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-6"><input type="text" id="nuevoNombre" class="form-control" placeholder="Nombre" required></div>
-                            <div class="col-md-6"><input type="text" id="nuevaCedula" class="form-control" placeholder="Cédula"></div>
-                            <div class="col-md-6"><input type="email" id="nuevoEmail" class="form-control" placeholder="Correo" required></div>
-                            <div class="col-md-6"><input type="password" id="nuevoPass" class="form-control" placeholder="Clave" required></div>
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-4"><input type="text" id="nuevoTel" class="form-control" placeholder="Teléfono"></div>
-                            <div class="col-md-4"><select id="nuevoCapitulo" class="form-select"><option value="Carabobo">Carabobo</option><option value="Aragua">Aragua</option><option value="Caracas">Caracas</option></select></div>
-                            <div class="col-md-4"><select id="nuevoRol" class="form-select"><option value="ESTANDAR">Estandar</option><option value="TESORERO">Tesorero</option><option value="ADMIN">Admin</option></select></div>
-                        </div>
-                        <button type="submit" class="btn btn-danger w-100 fw-bold" id="btnSubmitRegistro">GUARDAR FICHA</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalCobroReal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-white"><div class="modal-header"><h5 class="text-success">Registrar Pago</h5></div>
-                <div class="modal-body">
-                    <form id="formRegistrarPago">
-                        <select id="selectCobroMiembro" class="form-select mb-3" required></select>
-                        <input type="number" id="montoPago" class="form-control mb-3" placeholder="Monto $" required>
-                        <button type="submit" class="btn btn-success w-100 fw-bold">CONFIRMAR PAGO</button>
+                    <form id="formCajaInicial">
+                        <input type="number" id="montoCajaInicial" class="form-control mb-3" placeholder="Ej: 200" required>
+                        <button type="submit" class="btn btn-success w-100 fw-bold">GUARDAR FONDO</button>
                     </form>
                 </div>
             </div>

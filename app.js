@@ -30,12 +30,17 @@ const cambiarVista = (vista) => {
     const fab = document.getElementById('btnNuevoRegistro');
 
     if (vista === 'personal') {
-        vPers.classList.remove('d-none'); vGest.classList.add('d-none');
-        bPers.classList.add('active'); bGest.classList.remove('active');
+        vPers.classList.remove('d-none');
+        vGest.classList.add('d-none');
+        bPers.classList.add('active'); // Se pone rojo
+        bGest.classList.remove('active'); // Se pone gris
         fab.classList.add('d-none');
     } else {
-        vPers.classList.add('d-none'); vGest.classList.remove('d-none');
-        bPers.classList.remove('active'); bGest.classList.add('active');
+        vPers.classList.add('d-none');
+        vGest.classList.remove('d-none');
+        bPers.classList.remove('active');
+        bGest.classList.add('active');
+        // Solo mostramos el + si es ADMIN
         if (rolUsuarioActual === "ADMIN") fab.classList.remove('d-none');
     }
 };

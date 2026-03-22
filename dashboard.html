@@ -184,23 +184,63 @@
             }
         });
 
-        function generarCalendario(deuda, estado, anio) {
-            const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-            const cont = document.getElementById('calendarioPagos');
+        // --- REEMPLAZA TU FUNCIÓN generarCalendario POR ESTA ---
+        function generarCalendario(deudaTotal, estado, anioVer) {
+            const nombresMeses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+            const contenedor = document.getElementById('calendarioPagos');
             const hoy = new Date();
-            let mesesDeudaReal = Math.floor(deuda / 5);
-            cont.innerHTML = "";
+            const mesHoy = hoy.getMonth();
+            const anioHoy = hoy.getFullYear();
+            const diaHoy = hoy.getDate();
+            
+            // Calculamos cuántos meses de deuda representa el dinero total ($5 por mes)
+            let mesesDeudaPendiente = Math.floor(deudaTotal / 5);
+            contenedor.innerHTML = "";
 
-            meses.forEach((nombre, i) => {
-                let color = "bg-secondary text-muted";
+            nombresMeses.forEach((nombre, i) => {
+                let color = "bg-secondary text-muted"; // Color para meses futuros
                 let estilo = "";
-                if (parseInt(anio) < hoy.getFullYear() || (parseInt(anio) === hoy.getFullYear() && i <= hoy.getMonth())) {
-                    let diff = ((hoy.getFullYear() - parseInt(anio)) * 12) + (hoy.getMonth() - i);
-                    if (diff < mesesDeudaReal) { color = "bg-danger text-white"; }
-                    else if (estado === "SUSPENDIDO" && diff >= mesesDeudaReal) { color = "bg-dark text-muted"; estilo="opacity: 0.6;"; nombre += " (X)"; }
-                    else { color = "bg-success text-white"; }
+                let textoFinal = nombre;
+
+                const anioSeleccionado = parseInt(anioVer);
+
+                // Solo evaluamos meses que ya pasaron o el actual
+                if (anioSeleccionado < anioHoy || (anioSeleccionado === anioHoy && i <= mesHoy)) {
+                    
+                    // Calculamos la distancia en meses desde "Hoy" hasta este cuadrito
+                    let diffMeses = ((anioHoy - anioSeleccionado) * 12) + (mesHoy - i);
+
+                    // Regla de los 5 días de gracia para el mes actual
+                    if (anioSeleccionado === anioHoy && i === mesHoy && diaHoy <= 5) {
+                        color = "bg-secondary text-muted"; // Periodo de gracia
+                    } 
+                    else if (diffMeses < mesesDeudaPendiente) {
+                        // ESTÁ EN DEUDA
+                        if (estado === "SUSPENDIDO") {
+                            color = "bg-dark text-white"; // Negro por suspensión
+                            estilo = "border: 1px solid #d9534f; text-decoration: line-through; opacity: 0.8;";
+                        } else {
+                            color = "bg-danger text-white"; // Rojo deuda activa
+                        }
+                    } 
+                    else if (estado === "SUSPENDIDO" && diffMeses >= mesesDeudaPendiente && diffMeses < 12) {
+                        // MESES NULOS (Amnistía por suspensión)
+                        color = "bg-dark text-muted";
+                        estilo = "opacity: 0.5; border: 1px dashed #444;";
+                        textoFinal += " (X)";
+                    }
+                    else {
+                        // ESTÁ PAGADO / AL DÍA
+                        color = "bg-success text-white";
+                    }
                 }
-                cont.innerHTML += `<div class="col-3"><div class="p-2 rounded small fw-bold ${color}" style="${estilo}">${nombre}</div></div>`;
+
+                contenedor.innerHTML += `
+                    <div class="col-3">
+                        <div class="p-2 rounded small fw-bold ${color}" style="${estilo}">
+                            ${textoFinal}
+                        </div>
+                    </div>`;
             });
         }
 

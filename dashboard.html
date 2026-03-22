@@ -144,56 +144,59 @@
 
                 if (userDoc.exists()) {
                     const d = userDoc.data();
-                    
-                    // 1. VALORES ACTUALES
-                    let deudaBaseOriginal = Number(d.deuda_total) || 0;
+                    let deudaActual = Number(d.deuda_total) || 0;
+                    let estadoActual = d.estado_membresia || "ACTIVO";
                     const hoy = new Date();
-                    
-                    // Leemos la fecha de anclaje de la base de datos
-                    const fechaAnclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
+                    const fechaAnclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date();
 
-                    // 2. CALCULO DE MESES (Diferencia simple)
-                    let mesesTranscurridos = ((hoy.getFullYear() - fechaAnclaje.getFullYear()) * 12) + (hoy.getMonth() - fechaAnclaje.getMonth());
-                    
-                    // Forzamos que si el mes es mayor, la deuda suba sí o sí en este test
-                    if (mesesTranscurridos < 0) mesesTranscurridos = 0;
-
-                    // 3. CALCULO DE DINERO
-                    let multiplicador = (d.estado_membresia === "SUSPENDIDO") ? 0 : 5;
-                    let deudaCalculada = deudaBaseOriginal + (mesesTranscurridos * multiplicador);
-
-                    // 4. ACTUALIZACIÓN REAL EN FIREBASE
-                    // Si la deuda calculada es mayor a la que hay guardada, la grabamos ya mismo
-                    if (deudaCalculada > deudaBaseOriginal) {
-                        await updateDoc(userRef, {
-                            deuda_total: deudaCalculada,
-                            fecha_anclaje: hoy.toISOString().split('T')[0] // Se actualiza el anclaje a hoy
-                        });
-                        deudaFinalGlobal = deudaCalculada;
-                    } else {
-                        deudaFinalGlobal = deudaBaseOriginal;
+                    // 1. CÁLCULO DE MESES (Solo si está ACTIVO)
+                    let mesesNuevos = 0;
+                    if (estadoActual === "ACTIVO") {
+                        mesesNuevos = ((hoy.getFullYear() - fechaAnclaje.getFullYear()) * 12) + (hoy.getMonth() - fechaAnclaje.getMonth());
+                        // Regla de los 5 días de gracia
+                        if (hoy.getDate() <= 5 && mesesNuevos > 0) mesesNuevos--;
                     }
 
-                    // 5. REFRESCAR INTERFAZ
-                    estadoGlobal = d.estado_membresia || "ACTIVO";
-                    document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
-                    document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
-                    document.getElementById('txtRolMenu').innerText = d.rol_app || "MIEMBRO";
+                    let deudaFinal = deudaActual + (mesesNuevos * 5);
+                    let nuevoEstado = estadoActual;
 
-                    if(estadoGlobal === "SUSPENDIDO") document.getElementById('indicadorSuspension').classList.remove('d-none');
-                    else document.getElementById('indicadorSuspension').classList.add('d-none');
+                    // 2. LÓGICA DE SUSPENSIÓN AUTOMÁTICA
+                    if (deudaFinal >= 20 && estadoActual === "ACTIVO") {
+                        deudaFinal = 20;
+                        nuevoEstado = "SUSPENDIDO";
+                    }
+
+                    // 3. GUARDADO AUTOMÁTICO (Si pasó un mes o cambió el estado)
+                    if (mesesNuevos > 0 || nuevoEstado !== d.estado_membresia) {
+                        await updateDoc(userRef, {
+                            deuda_total: deudaFinal,
+                            estado_membresia: nuevoEstado,
+                            // Al actualizar, anclamos a hoy para "borrar" el tiempo pasado
+                            fecha_anclaje: hoy.toISOString().split('T')[0]
+                        });
+                        deudaFinalGlobal = deudaFinal;
+                        estadoGlobal = nuevoEstado;
+                    } else {
+                        deudaFinalGlobal = deudaFinal;
+                        estadoGlobal = d.estado_membresia;
+                    }
+
+                    // --- INTERFAZ ---
+                    document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
+                    const indicador = document.getElementById('indicadorSuspension');
+                    
+                    if(estadoGlobal === "SUSPENDIDO") {
+                        indicador.innerText = "⚠️ SUSPENSIÓN: Meses congelados. Prohibido uso de colores.";
+                        indicador.classList.remove('d-none');
+                    } else {
+                        indicador.classList.add('d-none');
+                    }
 
                     generarCalendario(deudaFinalGlobal, estadoGlobal, "2026");
-
-                    if (d.rol_app === "ADMIN") {
-                        document.getElementById('seccionDirectorio').classList.remove('d-none');
-                        document.getElementById('btnFabNuevo').classList.remove('d-none');
-                        cargarUsuarios(); 
-                    }
+                    if (d.rol_app === "ADMIN") cargarUsuarios();
                 }
-            } catch (e) { 
-                console.error("Error:", e); 
-            } finally {
+            } catch (e) { console.error(e); }
+            finally {
                 document.getElementById('pantallaCarga').classList.add('d-none');
                 document.getElementById('appContent').classList.remove('d-none');
             }
@@ -208,30 +211,32 @@
             const contenedor = document.getElementById('calendarioPagos');
             const hoy = new Date();
             const mesHoy = hoy.getMonth();
-            const diaHoy = hoy.getDate();
             const anioHoy = hoy.getFullYear();
             
-            let mesesADeber = Math.floor(deudaDolares / 5);
+            let mesesDeudaReal = Math.floor(deudaDolares / 5);
             contenedor.innerHTML = "";
 
             meses.forEach((nombre, i) => {
-                let color = "bg-secondary text-muted";
+                let color = "bg-secondary text-muted"; // Futuro
                 let estilo = "";
 
                 if (parseInt(anioVer) < anioHoy || (parseInt(anioVer) === anioHoy && i <= mesHoy)) {
-                    // Gracia los primeros 5 días
-                    if (parseInt(anioVer) === anioHoy && i === mesHoy && diaHoy <= 5) {
-                        color = "bg-secondary text-muted";
+                    let diff = ((anioHoy - parseInt(anioVer)) * 12) + (mesHoy - i);
+
+                    if (diff < mesesDeudaReal) {
+                        // ESTÁ EN DEUDA ACTIVA (1, 2 o 3 meses)
+                        color = "bg-danger text-white";
+                    } else if (estado === "SUSPENDIDO" && diff >= mesesDeudaReal && diff < 12) {
+                        // MESES NULOS (Estaba suspendido, no se cobran)
+                        color = "bg-dark text-muted";
+                        estilo = "opacity: 0.6; border: 1px dashed #444;";
+                        nombre = nombre + " (X)"; 
                     } else {
-                        let diff = ((anioHoy - parseInt(anioVer)) * 12) + (mesHoy - i);
-                        if (diff < mesesADeber) {
-                            if (estado === "SUSPENDIDO") {
-                                color = "bg-dark text-muted";
-                                estilo = "text-decoration: line-through; opacity: 0.5;";
-                            } else { color = "bg-danger text-white"; }
-                        } else { color = "bg-success text-white"; }
+                        // PAGADO
+                        color = "bg-success text-white";
                     }
                 }
+                
                 contenedor.innerHTML += `<div class="col-3"><div class="p-2 rounded small fw-bold ${color}" style="${estilo}">${nombre}</div></div>`;
             });
         }

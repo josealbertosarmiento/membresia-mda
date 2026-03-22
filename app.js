@@ -21,38 +21,45 @@ let deudaGlobal = 0;
 let estadoGlobal = "ACTIVO";
 let rolUsuarioActual = "ESTANDAR";
 
-// --- CAMBIAR VISTAS (Funciona con Event Listeners ahora) ---
+// --- NAVEGACIÓN DE VISTAS ---
 const cambiarVista = (vista) => {
     const vPers = document.getElementById('vistaPersonal');
     const vGest = document.getElementById('vistaGestion');
+    const vSecre = document.getElementById('vistaSecretario');
     const bPers = document.getElementById('btnNavPers');
     const bGest = document.getElementById('btnNavGest');
+    const bSecre = document.getElementById('btnNavSecre');
     const fab = document.getElementById('btnNuevoRegistro');
+
+    // Resetear todo
+    [vPers, vGest, vSecre].forEach(v => v.classList.add('d-none'));
+    [bPers, bGest, bSecre].forEach(b => b.classList.remove('active'));
+    fab.classList.add('d-none');
 
     if (vista === 'personal') {
         vPers.classList.remove('d-none');
-        vGest.classList.add('d-none');
-        bPers.classList.add('active'); // Aquí se activa el color del SVG
-        bGest.classList.remove('active');
-        fab.classList.add('d-none');
-    } else {
-        vPers.classList.add('d-none');
+        bPers.classList.add('active');
+    } else if (vista === 'gestion') {
         vGest.classList.remove('d-none');
-        bPers.classList.remove('active');
-        bGest.classList.add('active'); // Aquí se activa el color del SVG
+        bGest.classList.add('active');
         if (rolUsuarioActual === "ADMIN") fab.classList.remove('d-none');
+    } else if (vista === 'secretario') {
+        vSecre.classList.remove('d-none');
+        bSecre.classList.add('active');
     }
 };
 
+// Listeners para la barra inferior
 document.getElementById('btnNavPers').addEventListener('click', () => cambiarVista('personal'));
 document.getElementById('btnNavGest').addEventListener('click', () => cambiarVista('gestion'));
+document.getElementById('btnNavSecre').addEventListener('click', () => cambiarVista('secretario'));
 
-// --- LOGOUT ---
+// --- SALIR ---
 document.getElementById('btnCerrarSesion').addEventListener('click', () => {
     signOut(auth).then(() => window.location.href = "index.html");
 });
 
-// --- SESIÓN ---
+// --- SESIÓN Y CARGA ---
 onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "index.html"; return; }
     try {
@@ -60,8 +67,8 @@ onAuthStateChanged(auth, async (user) => {
         if (snap.exists()) {
             const d = snap.data();
             rolUsuarioActual = d.rol_app;
-            
-            // Lógica de Deuda
+
+            // Lógica de Deuda (Mantenemos tu lógica intacta)
             let deuda = Number(d.deuda_total) || 0;
             const hoy = new Date();
             const anclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
@@ -78,15 +85,22 @@ onAuthStateChanged(auth, async (user) => {
             }
 
             deudaGlobal = deudaCalc; estadoGlobal = estado;
-
-            document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
+            document.getElementById('txtNombreUsuario').innerText = "Hola, " + (d.nombre || "Hermano");
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
+            document.getElementById('txtRolMenu').innerText = d.rol_app;
+
             generarCalendario(deudaGlobal, estadoGlobal, "2026");
 
-            if (rolUsuarioActual === "ADMIN" || d.rango_mg === "Tesorero") {
+            // Permisos de Barra
+            if (["ADMIN", "TESORERO", "SECRETARIO", "DIRECTIVO"].includes(rolUsuarioActual)) {
                 document.getElementById('navAdmin').classList.remove('d-none');
-                cargarUsuarios();
-                prepararSelectCobro();
+                if (rolUsuarioActual === "ADMIN" || rolUsuarioActual === "TESORERO") {
+                    cargarUsuarios(); // Carga la lista en Gestión
+                    prepararSelectCobro();
+                }
+                if (rolUsuarioActual === "ADMIN" || rolUsuarioActual === "SECRETARIO") {
+                    document.getElementById('btnNavSecre').classList.remove('d-none');
+                }
             }
         }
     } catch (e) { console.error(e); }
@@ -94,12 +108,12 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('appContent').classList.remove('d-none');
 });
 
-// --- SELECTOR DE AÑO ---
+// --- SELECTOR AÑO ---
 document.getElementById('selectorAnio').addEventListener('change', (e) => {
     generarCalendario(deudaGlobal, estadoGlobal, e.target.value);
 });
 
-// --- FUNCIONES CALENDARIO Y GESTIÓN (IDÉNTICAS A LAS ANTERIORES) ---
+// --- FUNCIONES CORE ---
 function generarCalendario(deuda, estado, anio) {
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const cont = document.getElementById('calendarioPagos');
@@ -123,86 +137,84 @@ async function cargarUsuarios() {
     const lista = document.getElementById('listaUsuarios');
     const snap = await getDocs(collection(db, "usuarios"));
     lista.innerHTML = "";
-    
     snap.forEach((d) => {
         const u = d.data();
-        const deuda = u.deuda_total || 0;
-        const inicial = (u.nombre || "M").charAt(0).toUpperCase();
-        
         lista.innerHTML += `
             <div class="miembro-card">
-                <div class="d-flex align-items-center">
-                    <div class="avatar">${inicial}</div>
-                    <div>
-                        <h6 class="mb-0 fw-bold">${u.nombre || "Sin Nombre"}</h6>
-                        <small class="text-muted">$${deuda} - ${u.estado_membresia || "ACTIVO"}</small>
-                        <div class="small text-accent" style="font-size: 10px;">${u.capitulo || "Sin Capítulo"}</div>
-                    </div>
+                <div>
+                    <h6 class="mb-0 fw-bold">${u.nombre}</h6>
+                    <small class="text-muted">Debe: $${u.deuda_total} | Pagado: $${u.acumulado_pagado || 0}</small>
                 </div>
-                <button class="btn btn-sm btn-outline-light" onclick="window.abrirEditorManual('${d.id}', ${deuda})">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="window.abrirEditorManual('${d.id}', ${u.deuda_total})">Edit</button>
             </div>`;
     });
 }
 
-// Función global para abrir el modal de edición (Agrégala al final de app.js)
-window.abrirEditorManual = (uid, deudaActual) => {
-    document.getElementById('editUid').value = uid;
-    document.getElementById('editDeuda').value = deudaActual;
-    const modal = new bootstrap.Modal(document.getElementById('modalEditarMiembro'));
-    modal.show();
+window.abrirEditorManual = (uid, deuda) => {
+    // Aquí podrías abrir un modal para editar la deuda manualmente
+    alert("Función para editar deuda de ID: " + uid);
 };
 
 async function prepararSelectCobro() {
     const select = document.getElementById('selectCobroMiembro');
+    if(!select) return;
     const snap = await getDocs(collection(db, "usuarios"));
     select.innerHTML = '<option value="">Seleccione...</option>';
     snap.forEach(d => { select.innerHTML += `<option value="${d.id}">${d.data().nombre}</option>`; });
 }
 
-// --- SUBMIT DE PAGOS Y REGISTRO ---
+// --- FORMULARIOS ---
 document.getElementById('formRegistrarPago').addEventListener('submit', async (e) => {
     e.preventDefault();
     const uid = document.getElementById('selectCobroMiembro').value;
     const monto = Number(document.getElementById('montoPago').value);
     const ref = doc(db, "usuarios", uid);
-    const d = (await getDoc(ref)).data();
-    let nueva = (d.deuda_total || 0) - monto; if (nueva < 0) nueva = 0;
-    await updateDoc(ref, { deuda_total: nueva, estado_membresia: nueva >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
+    const snap = await getDoc(ref);
+    const d = snap.data();
+    
+    let nuevaDeuda = (d.deuda_total || 0) - monto;
+    if (nuevaDeuda < 0) nuevaDeuda = 0;
+    let nuevoAcumulado = (d.acumulado_pagado || 0) + monto;
+
+    await updateDoc(ref, { 
+        deuda_total: nuevaDeuda, 
+        acumulado_pagado: nuevoAcumulado,
+        estado_membresia: nuevaDeuda >= 20 ? "SUSPENDIDO" : "ACTIVO",
+        fecha_anclaje: new Date().toISOString().split('T')[0] 
+    });
     location.reload();
 });
 
 document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
-    await setDoc(doc(db, "usuarios", u.user.uid), {
-        nombre: document.getElementById('nuevoNombre').value,
-        email: document.getElementById('nuevoEmail').value,
-        rango_mg: document.getElementById('nuevoRango').value,
-        rol_app: document.getElementById('nuevoRol').value,
-        deuda_total: 0, estado_membresia: "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0]
-    });
-    await signOut(authSecundaria);
-    location.reload();
+    const btn = e.target.querySelector('button');
+    btn.innerText = "Registrando..."; btn.disabled = true;
+    try {
+        const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
+        await setDoc(doc(db, "usuarios", u.user.uid), {
+            nombre: document.getElementById('nuevoNombre').value,
+            cedula: document.getElementById('nuevaCedula').value,
+            email: document.getElementById('nuevoEmail').value,
+            telefono: document.getElementById('nuevoTel').value,
+            nombre_emergencia: document.getElementById('nuevoNomEmerg').value,
+            contacto_emergencia: document.getElementById('nuevoTelEmerg').value,
+            tipo_sangre: document.getElementById('nuevoSangre').value,
+            alergias: document.getElementById('nuevasAlergias').value,
+            tratamiento: document.getElementById('nuevoTratamiento').value,
+            moto: {
+                modelo: document.getElementById('motoModelo').value,
+                placa: document.getElementById('motoPlaca').value,
+                cilindrada: document.getElementById('motoCilindrada').value
+            },
+            capitulo: document.getElementById('nuevoCapitulo').value,
+            rango_mg: document.getElementById('nuevoRango').value,
+            rol_app: document.getElementById('nuevoRol').value,
+            deuda_total: 0,
+            acumulado_pagado: 0,
+            estado_membresia: "ACTIVO",
+            fecha_anclaje: new Date().toISOString().split('T')[0]
+        });
+        await signOut(authSecundaria);
+        location.reload();
+    } catch (err) { alert(err.message); btn.innerText = "GUARDAR FICHA"; btn.disabled = false; }
 });
-
-async function cargarUsuariosTesorero() {
-    const lista = document.getElementById('listaUsuarios');
-    const snap = await getDocs(collection(db, "usuarios"));
-    lista.innerHTML = "";
-    
-    snap.forEach((d) => {
-        const u = d.data();
-        lista.innerHTML += `
-            <div class="miembro-card d-flex justify-content-between align-items-center p-3 mb-2 card-custom">
-                <div>
-                    <h6 class="mb-1 fw-bold">${u.nombre}</h6>
-                    <span class="badge bg-danger">Debe: $${u.deuda_total || 0}</span>
-                    <span class="badge bg-success">Pagado: $${u.acumulado_pagado || 0}</span>
-                </div>
-                <button class="btn btn-sm btn-success" onclick="abrirModalPago('${d.id}')">Cobrar</button>
-            </div>
-        `;
-    });
-}

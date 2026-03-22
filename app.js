@@ -36,7 +36,11 @@ const cambiarVista = (vista) => {
     fab.classList.add('d-none');
 
     if (vista === 'personal') { vPers.classList.remove('d-none'); bPers.classList.add('active'); }
-    else if (vista === 'gestion') { vGest.classList.remove('d-none'); bGest.classList.add('active'); if(rolUsuarioActual === "ADMIN") fab.classList.remove('d-none'); }
+    else if (vista === 'gestion') { 
+        vGest.classList.remove('d-none'); 
+        bGest.classList.add('active'); 
+        if(rolUsuarioActual === "ADMIN") fab.classList.remove('d-none'); 
+    }
     else if (vista === 'secretario') { vSecre.classList.remove('d-none'); bSecre.classList.add('active'); }
 };
 
@@ -58,7 +62,7 @@ onAuthStateChanged(auth, async (user) => {
             const d = snap.data();
             rolUsuarioActual = d.rol_app;
 
-            // Deuda
+            // Lógica de Deuda
             let deuda = Number(d.deuda_total) || 0;
             const hoy = new Date();
             const anclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
@@ -79,16 +83,21 @@ onAuthStateChanged(auth, async (user) => {
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
             generarCalendario(deudaGlobal, estadoGlobal, "2026");
 
+            // CONTROL DE ACCESOS DIRECTIVOS
             if (["ADMIN", "TESORERO", "SECRETARIO", "DIRECTIVO"].includes(rolUsuarioActual)) {
                 document.getElementById('navAdmin').classList.remove('d-none');
                 cargarBalanceGlobal();
-                cargarUsuarios();
+                cargarUsuarios(); // Todos ven la lista
+
+                // Solo los que manejan dinero ven los botones de acción
                 if (rolUsuarioActual === "ADMIN" || rolUsuarioActual === "TESORERO") {
                     document.getElementById('btnsTesorero').classList.remove('d-none');
                     prepararSelectCobro();
                 }
+                
+                // Pestaña de fichas para Secretario y Admin
                 if (rolUsuarioActual === "ADMIN" || rolUsuarioActual === "SECRETARIO") {
-                    document.getElementById('btnNavSecre').classList.remove('d-none');
+                    document.getElementById('btnNavSecre').classList.remove('none');
                 }
             }
         }
@@ -97,7 +106,7 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('appContent').classList.remove('d-none');
 });
 
-// BALANCE GLOBAL (Lo que hay en caja + lo que falta por cobrar)
+// BALANCE CONTABLE
 async function cargarBalanceGlobal() {
     try {
         const snap = await getDocs(collection(db, "usuarios"));
@@ -106,30 +115,22 @@ async function cargarBalanceGlobal() {
             porCobrar += (d.data().deuda_total || 0);
             recaudadoApp += (d.data().acumulado_pagado || 0);
         });
-        
-        // Obtenemos el Saldo Inicial configurado por el Tesorero
         const docFin = await getDoc(doc(db, "config", "finanzas"));
         let saldoIni = docFin.exists() ? docFin.data().caja_inicial : 0;
-        
-        // Dinero en Mano = Saldo Inicial + Todo lo pagado a través de la App
         document.getElementById('totalEnCaja').innerText = "$" + (saldoIni + recaudadoApp);
         document.getElementById('totalPorCobrar').innerText = "$" + porCobrar;
-    } catch (e) { console.log("Error balance:", e); }
+    } catch (e) { console.log(e); }
 }
 
-// CAJA INICIAL (Vaciado inicial de fondos físicos)
+// CAJA INICIAL (Vaciado)
 document.getElementById('formCajaInicial').addEventListener('submit', async (e) => {
     e.preventDefault();
     const monto = Number(document.getElementById('montoCajaInicial').value);
-    await setDoc(doc(db, "config", "finanzas"), { 
-        caja_inicial: monto,
-        fecha_vaciado: new Date().toISOString()
-    }, { merge: true });
-    alert("¡Saldo inicial de tesorería registrado!");
+    await setDoc(doc(db, "config", "finanzas"), { caja_inicial: monto, fecha_vaciado: new Date().toISOString() }, { merge: true });
     location.reload();
 });
 
-// CALENDARIO
+// CALENDARIO (Visualización universal)
 function generarCalendario(deuda, estado, anio) {
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const cont = document.getElementById('calendarioPagos');
@@ -148,22 +149,30 @@ function generarCalendario(deuda, estado, anio) {
     });
 }
 
-// CARGAR LISTA GESTIÓN
+// LISTA DE MIEMBROS CON FILTRO DE EDICIÓN
 async function cargarUsuarios() {
     const lista = document.getElementById('listaUsuarios');
     const snap = await getDocs(collection(db, "usuarios"));
     lista.innerHTML = "";
+    
+    const puedeEditar = ["ADMIN", "TESORERO"].includes(rolUsuarioActual);
+
     snap.forEach(d => {
         const u = d.data();
+        let btnEdit = puedeEditar ? `<button class="btn btn-sm btn-outline-danger" onclick="window.abrirEditorManual('${d.id}', ${u.deuda_total})">Edit</button>` : "";
+        
         lista.innerHTML += `
             <div class="miembro-card">
-                <div><b>${u.nombre}</b><br><small>$${u.deuda_total} - ${u.estado_membresia}</small></div>
-                <button class="btn btn-sm btn-outline-danger" onclick="window.abrirEditorManual('${d.id}', ${u.deuda_total})">Edit</button>
+                <div>
+                    <b class="${u.estado_membresia === 'SUSPENDIDO' ? 'text-danger' : 'text-success'}">${u.nombre}</b>
+                    <br><small>$${u.deuda_total} - ${u.estado_membresia}</small>
+                </div>
+                ${btnEdit}
             </div>`;
     });
 }
 
-// EDITAR MANUAL
+// AJUSTE MANUAL (Solo Admin/Tesorero)
 window.abrirEditorManual = (uid, deuda) => {
     document.getElementById('editUid').value = uid;
     document.getElementById('nuevoMontoManual').value = deuda;
@@ -182,31 +191,7 @@ document.getElementById('formEditarSaldo').addEventListener('submit', async (e) 
     location.reload();
 });
 
-// REGISTRO DE NUEVO MIEMBRO
-document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('btnSubmitRegistro');
-    btn.innerText = "Registrando..."; btn.disabled = true;
-    try {
-        const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
-        await setDoc(doc(db, "usuarios", u.user.uid), {
-            nombre: document.getElementById('nuevoNombre').value, 
-            cedula: document.getElementById('nuevaCedula').value, 
-            email: document.getElementById('nuevoEmail').value,
-            telefono: document.getElementById('nuevoTel').value, 
-            capitulo: document.getElementById('nuevoCapitulo').value, 
-            rango_mg: document.getElementById('nuevoRango').value,
-            rol_app: document.getElementById('nuevoRol').value, 
-            deuda_total: 0, 
-            acumulado_pagado: 0, 
-            estado_membresia: "ACTIVO", 
-            fecha_anclaje: new Date().toISOString().split('T')[0]
-        });
-        await signOut(authSecundaria); location.reload();
-    } catch (err) { alert(err.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
-});
-
-// COBRO DE MENSUALIDAD (Actualiza usuario y crea historial en 'finanzas')
+// COBRO CON HISTORIAL CONTABLE
 async function prepararSelectCobro() {
     const select = document.getElementById('selectCobroMiembro');
     const snap = await getDocs(collection(db, "usuarios"));
@@ -227,7 +212,6 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
         let nD = Math.max(0, (d.deuda_total || 0) - monto);
         let nA = (d.acumulado_pagado || 0) + monto;
 
-        // 1. Actualizar ficha del miembro
         await updateDoc(refUser, { 
             deuda_total: nD, 
             acumulado_pagado: nA, 
@@ -235,7 +219,7 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
             fecha_anclaje: new Date().toISOString().split('T')[0] 
         });
 
-        // 2. CREAR REGISTRO EN LA COLECCIÓN DE FINANZAS (HISTORIAL)
+        // CREAR RECIBO EN HISTORIAL 'FINANZAS'
         await addDoc(collection(db, "finanzas"), {
             fecha: new Date().toISOString(),
             nombre_miembro: d.nombre,
@@ -247,7 +231,23 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
 
         alert("Pago registrado con éxito.");
         location.reload();
-    } catch (e) { alert("Error cobro: " + e.message); }
+    } catch (e) { console.error(e); }
+});
+
+// REGISTRO (Solo Admin)
+document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitRegistro');
+    btn.innerText = "Registrando..."; btn.disabled = true;
+    try {
+        const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
+        await setDoc(doc(db, "usuarios", u.user.uid), {
+            nombre: document.getElementById('nuevoNombre').value, cedula: document.getElementById('nuevaCedula').value, email: document.getElementById('nuevoEmail').value,
+            telefono: document.getElementById('nuevoTel').value, capitulo: document.getElementById('nuevoCapitulo').value, rango_mg: document.getElementById('nuevoRango').value,
+            rol_app: document.getElementById('nuevoRol').value, deuda_total: 0, acumulado_pagado: 0, estado_membresia: "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0]
+        });
+        await signOut(authSecundaria); location.reload();
+    } catch (err) { alert(err.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
 });
 
 document.getElementById('selectorAnio').addEventListener('change', (e) => generarCalendario(deudaGlobal, estadoGlobal, e.target.value));

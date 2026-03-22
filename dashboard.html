@@ -7,123 +7,104 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #121212; color: #ffffff; padding-bottom: 80px; }
-        .navbar-custom { background-color: #1a1a1a; border-bottom: 1px solid #2d2d2d; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .navbar-custom { background-color: #1a1a1a; border-bottom: 1px solid #2d2d2d; }
         .text-accent { color: #d9534f; }
-        
-        /* Tarjetas de Miembros */
-        .miembro-card { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 12px; margin-bottom: 10px; padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; }
-        .avatar { width: 45px; height: 45px; background-color: #2d2d2d; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; color: #fff; margin-right: 15px; }
-        
-        /* Botón Flotante Oculto por defecto */
-        .fab-btn { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; background-color: #d9534f; color: white; font-size: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(217, 83, 79, 0.4); border: none; z-index: 1000; }
-        
-        /* Pantalla de carga */
+        .card-custom { background-color: #1e1e1e; border: 1px solid #333; border-radius: 15px; }
+        .miembro-card { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 12px; margin-bottom: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; }
+        .avatar { width: 40px; height: 40px; background-color: #2d2d2d; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; }
+        .fab-btn { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; background-color: #d9534f; color: white; font-size: 28px; display: flex; align-items: center; justify-content: center; border: none; z-index: 1000; box-shadow: 0 4px 15px rgba(217,83,79,0.4); }
         #pantallaCarga { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #121212; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-
-        /* Modal */
         .modal-content { background-color: #1e1e1e; color: white; border: 1px solid #333; }
-        .modal-header { border-bottom: 1px solid #333; }
         .form-control, .form-select { background-color: #2b2b2b; color: white; border: 1px solid #444; }
-        .form-control:focus, .form-select:focus { background-color: #333; color: white; border-color: #d9534f; box-shadow: none; }
     </style>
 </head>
 <body>
 
     <div id="pantallaCarga">
-        <div class="spinner-border text-danger mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
-        <h5 class="text-muted fw-light">Cargando perfil...</h5>
+        <div class="spinner-border text-danger mb-3"></div>
+        <h5 class="text-muted fw-light">Sincronizando...</h5>
     </div>
 
     <div id="appContent" class="d-none">
-        
         <nav class="navbar navbar-dark navbar-custom px-3 py-3 sticky-top">
             <div class="container-fluid p-0">
                 <span class="navbar-brand mb-0 h4 fw-bold">MDA <span class="text-accent" id="txtRolMenu">App</span></span>
-                <button id="btnCerrarSesion" class="btn btn-outline-danger btn-sm rounded-pill px-3">Salir</button>
+                <button id="btnCerrarSesion" class="btn btn-outline-danger btn-sm rounded-pill">Salir</button>
             </div>
         </nav>
 
         <div class="container mt-4">
-            
             <div class="card p-3 mb-4 shadow-sm border-0" style="background: linear-gradient(145deg, #1e1e1e, #181818); border-radius: 15px;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <h6 class="text-muted fw-light mb-0" id="txtNombreUsuario">Mi Estado</h6>
-                        <h4 class="fw-bold text-white mb-0">Año 2026</h4>
+                        <select id="selectorAnio" class="form-select form-select-sm mt-1 border-secondary" style="background-color: #2b2b2b; color: white; width: auto;">
+                            <option value="2026" selected>Año 2026</option>
+                            <option value="2025">Año 2025</option>
+                            <option value="2024">Año 2024</option>
+                        </select>
                     </div>
                     <div class="text-end">
-                        <small class="text-muted d-block">Deuda Actual</small>
+                        <small class="text-muted d-block">Deuda Histórica</small>
                         <h4 class="text-danger fw-bold mb-0" id="miDeudaTotal">$0</h4>
                     </div>
                 </div>
-                
                 <div class="row g-2 text-center" id="calendarioPagos">
-                    <div class="col-3"><div class="p-2 rounded bg-success text-white small fw-bold shadow-sm">Ene</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-success text-white small fw-bold shadow-sm">Feb</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-danger text-white small fw-bold shadow-sm">Mar</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">Abr</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">May</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">Jun</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">Jul</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">Ago</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">Sep</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">Oct</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">Nov</div></div>
-                    <div class="col-3"><div class="p-2 rounded bg-secondary text-muted small fw-bold">Dic</div></div>
+                    </div>
+                <div id="indicadorSuspension" class="alert alert-dark py-1 px-2 mt-3 mb-0 small text-center d-none" style="border: 1px dashed #d9534f; color: #d9534f;">
+                    ⚠️ Membresía Congelada (Suspendido)
                 </div>
             </div>
 
             <div id="seccionDirectorio" class="d-none">
-                <h5 class="text-muted fw-light mb-1">Directorio de</h5>
-                <h2 class="fw-bold mb-4">Miembros Activos</h2>
+                <div class="d-flex justify-content-between align-items-end mb-3">
+                    <h2 class="fw-bold mb-0">Miembros</h2>
+                    <button id="btnAbrirCobro" class="btn btn-success btn-sm d-none" data-bs-toggle="modal" data-bs-target="#modalCobro">Registrar Pago</button>
+                </div>
                 <div id="listaUsuarios"></div>
             </div>
-
         </div>
 
         <button id="btnFabNuevo" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalNuevoMiembro">+</button>
 
         <div class="modal fade" id="modalNuevoMiembro" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+            <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
-                    <div class="modal-header border-0 pb-0">
-                        <h5 class="modal-title fw-bold">Nuevo Miembro</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
+                    <div class="modal-header border-0"><h5 class="fw-bold">Nuevo Registro</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
                         <form id="formNuevoMiembro">
-                            <div class="mb-3"><label class="small text-muted">Nombre</label><input type="text" id="nuevoNombre" class="form-control" required></div>
-                            <div class="mb-3"><label class="small text-muted">Correo</label><input type="email" id="nuevoEmail" class="form-control" required></div>
+                            <input type="text" id="nuevoNombre" class="form-control mb-3" placeholder="Nombre" required>
+                            <input type="email" id="nuevoEmail" class="form-control mb-3" placeholder="Correo" required>
                             <div class="row">
-                                <div class="col-6 mb-3">
-                                    <label class="small text-muted">Rango</label>
-                                    <select id="nuevoRango" class="form-select" required>
-                                        <option value="Presidente">Presidente</option>
-                                        <option value="Vicepresidente">Vicepresidente</option>
-                                        <option value="Sgto. de Armas">Sgto. de Armas</option>
-                                        <option value="Secretario">Secretario</option>
-                                        <option value="Tesorero">Tesorero</option>
-                                        <option value="Fullmember">Fullmember</option>
-                                        <option value="Miembro">Miembro</option>
-                                        <option value="Rookie" selected>Rookie</option>
-                                    </select>
-                                </div>
-                                <div class="col-6 mb-3">
-                                    <label class="small text-muted">Rol App</label>
-                                    <select id="nuevoRol" class="form-select" required>
-                                        <option value="ESTANDAR" selected>Estandar</option>
-                                        <option value="DIRECTIVA">Directiva</option>
-                                        <option value="TESORERO">Tesorero</option>
-                                        <option value="ADMIN">Admin</option>
-                                    </select>
-                                </div>
+                                <div class="col-6"><select id="nuevoRango" class="form-select mb-3"><option value="Rookie">Rookie</option><option value="Miembro">Miembro</option><option value="Fullmember">Fullmember</option><option value="Secretario">Secretario</option><option value="Tesorero">Tesorero</option><option value="Presidente">Presidente</option></select></div>
+                                <div class="col-6"><select id="nuevoRol" class="form-select mb-3"><option value="ESTANDAR">Estandar</option><option value="TESORERO">Tesorero</option><option value="ADMIN">Admin</option></select></div>
                             </div>
-                            <button type="submit" id="btnGuardarMiembro" class="btn btn-danger w-100 fw-bold py-3 mt-3">Guardar</button>
+                            <button type="submit" id="btnGuardarMiembro" class="btn btn-danger w-100 fw-bold py-2">Guardar</button>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="modal fade" id="modalCobro" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header border-0"><h5 class="fw-bold">Cobrar Membresía</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body text-center">
+                        <p class="text-muted small">Registra los dólares recibidos en físico.</p>
+                        <form id="formCobro">
+                            <select id="cobroMiembro" class="form-select mb-3" required></select>
+                            <div class="input-group mb-3">
+                                <span class="input-group-text bg-dark text-success border-secondary">$</span>
+                                <input type="number" id="montoCobro" class="form-control form-control-lg text-center" placeholder="0" required>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100 fw-bold py-3">Confirmar Pago</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -131,7 +112,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-        // Importante: Añadimos getDoc para poder leer un perfil específico
         import { getFirestore, collection, getDocs, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -146,83 +126,90 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-
         const appSecundaria = initializeApp(firebaseConfig, "AppSecundaria");
         const authSecundaria = getAuth(appSecundaria);
 
-        // 1. CONTROL DE ACCESO (ROLES) Y PROTECCIÓN DE RUTA
         onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = "index.html"; // Expulsado al login
-            } else {
-                try {
-                    // Consultamos en la BD qué rol tiene este usuario específico
-                    const userDoc = await getDoc(doc(db, "usuarios", user.uid));
+            if (!user) { window.location.href = "index.html"; } 
+            else {
+                const userDoc = await getDoc(doc(db, "usuarios", user.uid));
+                if (userDoc.exists()) {
+                    const d = userDoc.data();
                     
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data();
-                        
-                        // Personalizamos el saludo superior
-                        document.getElementById('txtNombreUsuario').innerText = "Hola, " + userData.nombre;
-                        document.getElementById('txtRolMenu').innerText = userData.rol_app;
+                    // 1. Mostrar Deuda Real y Nombre
+                    document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
+                    document.getElementById('miDeudaTotal').innerText = "$" + (d.deuda_heredada || 0);
+                    document.getElementById('txtRolMenu').innerText = d.rol_app;
 
-                        // LÓGICA DE ROLES: ¿A quién le mostramos qué?
-                        if (userData.rol_app === "ADMIN") {
-                            // Si es admin, mostramos el botón de +Nuevo y la lista de todos
-                            document.getElementById('btnFabNuevo').classList.remove('d-none');
-                            document.getElementById('seccionDirectorio').classList.remove('d-none');
-                            cargarUsuarios();
-                        } else if (userData.rol_app === "TESORERO" || userData.rol_app === "DIRECTIVA") {
-                            // Tesorero y Directiva ven la lista, pero NO pueden agregar nuevos
-                            document.getElementById('seccionDirectorio').classList.remove('d-none');
-                            cargarUsuarios();
-                        } else {
-                            // Un usuario ESTANDAR (Rookie/Miembro normal) no verá ni la lista ni el botón.
-                            // Solo verá su propio calendario de pagos.
-                        }
-
-                        // Quitamos la pantalla de carga negra
-                        document.getElementById('pantallaCarga').classList.add('d-none');
-                        document.getElementById('appContent').classList.remove('d-none');
-
-                    } else {
-                        // Si el usuario existe en Login pero no en la Base de Datos
-                        alert("Perfil no encontrado en la base de datos.");
-                        signOut(auth).then(() => { window.location.href = "index.html"; });
+                    // 2. Lógica de Suspensión Visual
+                    if(d.estado_membresia === "SUSPENDIDO") {
+                        document.getElementById('indicadorSuspension').classList.remove('d-none');
                     }
-                } catch (error) {
-                    console.error("Error al verificar perfil: ", error);
+
+                    // 3. Pintar Calendario (Simulado por ahora hasta crear estado_anual)
+                    generarCalendario(d.estado_membresia);
+
+                    // 4. Permisos
+                    if (d.rol_app === "ADMIN") {
+                        document.getElementById('btnFabNuevo').classList.remove('d-none');
+                        document.getElementById('seccionDirectorio').classList.remove('d-none');
+                        document.getElementById('btnAbrirCobro').classList.remove('d-none');
+                        cargarUsuarios();
+                    } else if (d.rol_app === "TESORERO") {
+                        document.getElementById('seccionDirectorio').classList.remove('d-none');
+                        document.getElementById('btnAbrirCobro').classList.remove('d-none');
+                        cargarUsuarios();
+                    }
+
+                    document.getElementById('pantallaCarga').classList.add('d-none');
+                    document.getElementById('appContent').classList.remove('d-none');
                 }
             }
         });
 
-        // 2. Cargar lista de miembros
-        async function cargarUsuarios() {
-            const lista = document.getElementById('listaUsuarios');
-            try {
-                const querySnapshot = await getDocs(collection(db, "usuarios"));
-                lista.innerHTML = ""; 
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    let badgeColor = "bg-secondary";
-                    if(data.rol_app === "ADMIN") badgeColor = "bg-danger";
-                    if(data.rol_app === "TESORERO") badgeColor = "bg-success";
-                    
-                    const inicial = data.nombre.charAt(0).toUpperCase();
-
-                    lista.innerHTML += `
-                        <div class="miembro-card">
-                            <div class="d-flex align-items-center">
-                                <div class="avatar">${inicial}</div>
-                                <div><h6 class="mb-0 fw-bold">${data.nombre}</h6><small class="text-muted">${data.rango_mg}</small></div>
-                            </div>
-                            <span class="badge ${badgeColor} rounded-pill px-3 py-2 small">${data.rol_app}</span>
-                        </div>`;
-                });
-            } catch (error) { console.error(error); }
+        function generarCalendario(estado) {
+            const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+            const contenedor = document.getElementById('calendarioPagos');
+            contenedor.innerHTML = "";
+            meses.forEach((m, index) => {
+                let estilo = "bg-secondary text-muted"; // Futuro
+                let decoration = "";
+                
+                // Ejemplo para José: Ene y Feb pagados. Marzo en adelante suspendido si aplica.
+                if(index < 2) estilo = "bg-success text-white shadow-sm";
+                if(index >= 2 && estado === "SUSPENDIDO") {
+                    estilo = "bg-dark text-muted"; 
+                    decoration = "text-decoration: line-through;";
+                }
+                
+                contenedor.innerHTML += `<div class="col-3"><div class="p-2 rounded small fw-bold ${estilo}" style="${decoration}">${m}</div></div>`;
+            });
         }
 
-        // 3. Crear nuevo miembro (Solo accesible por Admin)
+        async function cargarUsuarios() {
+            const lista = document.getElementById('listaUsuarios');
+            const selectCobro = document.getElementById('cobroMiembro');
+            const snap = await getDocs(collection(db, "usuarios"));
+            lista.innerHTML = "";
+            selectCobro.innerHTML = '<option value="">Seleccionar Miembro...</option>';
+            
+            snap.forEach((doc) => {
+                const u = doc.data();
+                const inicial = u.nombre.charAt(0).toUpperCase();
+                lista.innerHTML += `
+                    <div class="miembro-card">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar">${inicial}</div>
+                            <div><h6 class="mb-0 fw-bold">${u.nombre}</h6><small class="text-muted">${u.rango_mg}</small></div>
+                        </div>
+                        <span class="badge ${u.rol_app === 'ADMIN' ? 'bg-danger' : 'bg-secondary'} rounded-pill small">${u.rol_app}</span>
+                    </div>`;
+                // Llenar select del tesorero
+                selectCobro.innerHTML += `<option value="${doc.id}">${u.nombre}</option>`;
+            });
+        }
+
+        // Lógica de Registro de Usuario... (se mantiene igual que antes)
         document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btnGuardarMiembro');
@@ -230,32 +217,24 @@
             try {
                 const userCred = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, "mda123456");
                 await setDoc(doc(db, "usuarios", userCred.user.uid), {
-                    nombre: document.getElementById('nuevoNombre').value, email: document.getElementById('nuevoEmail').value,
-                    rango_mg: document.getElementById('nuevoRango').value, rol_app: document.getElementById('nuevoRol').value, estado: "Activo"
+                    nombre: document.getElementById('nuevoNombre').value,
+                    email: document.getElementById('nuevoEmail').value,
+                    rango_mg: document.getElementById('nuevoRango').value,
+                    rol_app: document.getElementById('nuevoRol').value,
+                    deuda_heredada: 0,
+                    estado_membresia: "ACTIVO",
+                    estado: "Activo"
                 });
                 await signOut(authSecundaria);
                 document.getElementById('formNuevoMiembro').reset();
                 bootstrap.Modal.getInstance(document.getElementById('modalNuevoMiembro')).hide();
-                cargarUsuarios(); 
-            } catch (error) { alert("Error: " + error.message); } 
+                cargarUsuarios();
+            } catch (error) { alert(error.message); }
             finally { btn.innerText = "Guardar"; btn.disabled = false; }
         });
 
-        // 4. SOLUCIÓN AL BOTÓN DE CERRAR SESIÓN PEGADO
-        document.getElementById('btnCerrarSesion').addEventListener('click', async () => {
-            const btn = document.getElementById('btnCerrarSesion');
-            btn.innerText = "Saliendo..."; // Feedback visual
-            btn.disabled = true;
-            try {
-                await signOut(auth);
-                // Usamos href en vez de replace para asegurar la redirección en móviles
-                window.location.href = "index.html"; 
-            } catch (error) {
-                console.error("Error al cerrar sesión", error);
-                alert("Hubo un problema al salir. Intenta de nuevo.");
-                btn.innerText = "Salir";
-                btn.disabled = false;
-            }
+        document.getElementById('btnCerrarSesion').addEventListener('click', () => {
+            signOut(auth).then(() => { window.location.href = "index.html"; });
         });
     </script>
 </body>

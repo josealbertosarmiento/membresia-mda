@@ -103,7 +103,7 @@ function generarCalendario(deuda, estado, anio) {
     });
 }
 
-// CREAR MIEMBRO (Ficha Técnica)
+// CREAR MIEMBRO
 document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSubmitRegistro');
@@ -117,11 +117,7 @@ document.getElementById('formNuevoMiembro').addEventListener('submit', async (e)
             cedula: document.getElementById('nuevaCedula').value,
             email: email,
             telefono: document.getElementById('nuevoTel').value,
-            nombre_emergencia: document.getElementById('nuevoNomEmerg').value,
-            contacto_emergencia: document.getElementById('nuevoTelEmerg').value,
-            moto: { modelo: document.getElementById('motoModelo').value, placa: document.getElementById('motoPlaca').value, cilindrada: document.getElementById('motoCilindrada').value },
             capitulo: document.getElementById('nuevoCapitulo').value,
-            rango_mg: document.getElementById('nuevoRango').value,
             rol_app: document.getElementById('nuevoRol').value,
             deuda_total: 0, acumulado_pagado: 0, estado_membresia: "ACTIVO",
             fecha_anclaje: new Date().toISOString().split('T')[0]
@@ -130,7 +126,48 @@ document.getElementById('formNuevoMiembro').addEventListener('submit', async (e)
     } catch (err) { alert(err.message); btn.innerText = "GUARDAR FICHA"; btn.disabled = false; }
 });
 
-// COBRO
+// LISTA DE USUARIOS CON BOTÓN EDITAR
+async function cargarUsuarios() {
+    const lista = document.getElementById('listaUsuarios');
+    const snap = await getDocs(collection(db, "usuarios"));
+    lista.innerHTML = "";
+    snap.forEach(d => {
+        const u = d.data();
+        lista.innerHTML += `
+            <div class="miembro-card">
+                <div><b>${u.nombre}</b><br><small>Saldo: $${u.deuda_total} - ${u.estado_membresia}</small></div>
+                <button class="btn btn-sm btn-outline-danger" onclick="window.abrirEditorManual('${d.id}', ${u.deuda_total})">Edit</button>
+            </div>`;
+    });
+}
+
+// ABRIR MODAL EDITAR SALDO
+window.abrirEditorManual = (uid, deudaActual) => {
+    document.getElementById('editUid').value = uid;
+    document.getElementById('nuevoMontoManual').value = deudaActual;
+    const modalEdit = new bootstrap.Modal(document.getElementById('modalEditarSaldo'));
+    modalEdit.show();
+};
+
+// GUARDAR SALDO MANUAL
+document.getElementById('formEditarSaldo').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const uid = document.getElementById('editUid').value;
+    const monto = Number(document.getElementById('nuevoMontoManual').value);
+    const ref = doc(db, "usuarios", uid);
+    
+    // Al cambiar saldo manual, recalculamos estado automáticamente
+    let nuevoEst = (monto >= 20) ? "SUSPENDIDO" : "ACTIVO";
+    
+    await updateDoc(ref, { 
+        deuda_total: monto, 
+        estado_membresia: nuevoEst,
+        fecha_anclaje: new Date().toISOString().split('T')[0] // Reiniciamos anclaje para que no sume hoy
+    });
+    location.reload();
+});
+
+// COBRO RÁPIDO
 document.getElementById('formRegistrarPago').addEventListener('submit', async (e) => {
     e.preventDefault();
     const uid = document.getElementById('selectCobroMiembro').value;
@@ -143,16 +180,6 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
     await updateDoc(ref, { deuda_total: nD, acumulado_pagado: nA, estado_membresia: nD >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
     location.reload();
 });
-
-async function cargarUsuarios() {
-    const lista = document.getElementById('listaUsuarios');
-    const snap = await getDocs(collection(db, "usuarios"));
-    lista.innerHTML = "";
-    snap.forEach(d => {
-        const u = d.data();
-        lista.innerHTML += `<div class="miembro-card"><div><b>${u.nombre}</b><br><small>$${u.deuda_total} - ${u.estado_membresia}</small></div></div>`;
-    });
-}
 
 async function prepararSelectCobro() {
     const select = document.getElementById('selectCobroMiembro');

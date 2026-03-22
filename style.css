@@ -4,25 +4,9 @@ body { background-color: #121212; color: #ffffff; padding-bottom: 90px; font-fam
 .card-custom { background-color: #1e1e1e; border: 1px solid #333; border-radius: 15px; }
 .miembro-card { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 12px; margin-bottom: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; }
 .avatar { width: 40px; height: 40px; background-color: #d9534f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; }
-
-/* Barra de Navegación Minimalista */
-.nav-admin { 
-    position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; 
-    background-color: #1a1a1a; border-top: 1px solid #333; 
-    display: flex; justify-content: space-around; align-items: center; z-index: 1000;
-}
-.nav-item { 
-    background: none; border: none; color: #777; 
-    display: flex; flex-direction: column; align-items: center; flex: 1; transition: 0.3s;
-}
-.nav-item span { font-size: 10px; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+.nav-admin { position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background-color: #1a1a1a; border-top: 1px solid #333; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
+.nav-item { background: none; border: none; color: #777; display: flex; flex-direction: column; align-items: center; flex: 1; transition: 0.3s; }
 .nav-item.active { color: #d9534f; }
-
-/* Botón flotante (+) */
-.fab-btn { 
-    position: fixed; bottom: 85px; right: 20px; width: 50px; height: 50px; 
-    border-radius: 16px; background-color: #d9534f; color: white; font-size: 28px; 
-    border: none; box-shadow: 0 8px 15px rgba(217, 83, 79, 0.3); z-index: 999;
-}
-
+.nav-item span { font-size: 10px; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+.fab-btn { position: fixed; bottom: 85px; right: 20px; width: 50px; height: 50px; border-radius: 16px; background-color: #d9534f; color: white; font-size: 28px; border: none; box-shadow: 0 8px 15px rgba(217, 83, 79, 0.3); z-index: 999; }
 #pantallaCarga { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }

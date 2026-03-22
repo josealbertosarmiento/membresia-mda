@@ -34,7 +34,7 @@
         </nav>
 
         <div class="container mt-4">
-            <div class="card p-3 mb-4 shadow-sm border-0" style="background: linear-gradient(145deg, #1e1e1e, #181818); border-radius: 15px;">
+            <div class="card p-3 mb-4 shadow-sm border-0 card-custom">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <h6 class="text-white fw-light mb-0" id="txtNombreUsuario">Mi Estado</h6>
@@ -51,7 +51,7 @@
                 </div>
                 <div class="row g-2 text-center" id="calendarioPagos"></div>
                 <div id="indicadorSuspension" class="alert alert-dark py-1 px-2 mt-3 mb-0 small text-center d-none" style="border: 1px dashed #d9534f; color: #d9534f;">
-                    ⚠️ Membresía Congelada (Suspendido)
+                    ⚠️ Membresía Congelada
                 </div>
             </div>
 
@@ -61,7 +61,7 @@
             </div>
         </div>
 
-        <button id="btnFabNuevo" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalNuevoMiembro">+</button>
+        <button id="btnFabNuevo" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalEditarMiembro">+</button>
 
         <div class="modal fade" id="modalEditarMiembro" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
@@ -87,7 +87,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
@@ -106,98 +105,96 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let deudaActual = 0;
-        let estadoActual = "ACTIVO";
+        // Variables globales para el selector de año
+        let deudaFinalGlobal = 0;
+        let estadoGlobal = "ACTIVO";
 
         onAuthStateChanged(auth, async (user) => {
-            if (!user) { window.location.href = "index.html"; } 
-            else {
-                try {
-                    const userDoc = await getDoc(doc(db, "usuarios", user.uid));
-                    if (userDoc.exists()) {
-                        const d = userDoc.data();
-                        
-                        // Sincronizamos con el nombre exacto de tu Firebase: deuda_total
-                        deudaActual = Number(d.deuda_total) || 0;
-                        estadoActual = d.estado_membresia || "ACTIVO";
+            if (!user) { window.location.href = "index.html"; return; } 
+            
+            try {
+                const userDoc = await getDoc(doc(db, "usuarios", user.uid));
+                if (userDoc.exists()) {
+                    const d = userDoc.data();
+                    
+                    // Lógica de Deuda Automática
+                    let deudaBase = Number(d.deuda_total) || 0;
+                    const hoy = new Date();
+                    const mesCarga = 2; // Marzo
+                    const anioCarga = 2026;
+                    let mesesTranscurridos = ((hoy.getFullYear() - anioCarga) * 12) + (hoy.getMonth() - mesCarga);
+                    if (mesesTranscurridos < 0) mesesTranscurridos = 0;
 
-                        document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
-                        document.getElementById('miDeudaTotal').innerText = "$" + deudaActual;
-                        document.getElementById('txtRolMenu').innerText = d.rol_app;
+                    let multiplicador = (d.estado_membresia === "SUSPENDIDO") ? 0 : 5;
+                    deudaFinalGlobal = deudaBase + (mesesTranscurridos * multiplicador);
+                    estadoGlobal = d.estado_membresia || "ACTIVO";
 
-                        if(estadoActual === "SUSPENDIDO") document.getElementById('indicadorSuspension').classList.remove('d-none');
-                        else document.getElementById('indicadorSuspension').classList.add('d-none');
+                    // Interfaz
+                    document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
+                    document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
+                    document.getElementById('txtRolMenu').innerText = d.rol_app || "MIEMBRO";
 
-                        generarCalendario(deudaActual, estadoActual, "2026");
+                    if(estadoGlobal === "SUSPENDIDO") document.getElementById('indicadorSuspension').classList.remove('d-none');
+                    else document.getElementById('indicadorSuspension').classList.add('d-none');
 
-                        if (d.rol_app === "ADMIN" || d.rol_app === "TESORERO") {
-                            document.getElementById('seccionDirectorio').classList.remove('d-none');
-                            if(d.rol_app === "ADMIN") document.getElementById('btnFabNuevo').classList.remove('d-none');
-                            cargarUsuarios();
-                        }
+                    generarCalendario(deudaFinalGlobal, estadoGlobal, "2026");
 
-                        document.getElementById('pantallaCarga').classList.add('d-none');
-                        document.getElementById('appContent').classList.remove('d-none');
+                    // Mostrar secciones si es ADMIN
+                    if (d.rol_app === "ADMIN") {
+                        document.getElementById('seccionDirectorio').classList.remove('d-none');
+                        document.getElementById('btnFabNuevo').classList.remove('d-none');
+                        cargarUsuarios();
                     }
-                } catch (e) { console.error("Error:", e); }
+
+                    // IMPORTANTE: Quitamos carga
+                    document.getElementById('pantallaCarga').classList.add('d-none');
+                    document.getElementById('appContent').classList.remove('d-none');
+                } else {
+                    alert("No se encontró perfil de usuario.");
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('pantallaCarga').classList.add('d-none');
             }
         });
 
+        // Selector de año funcional
         document.getElementById('selectorAnio').addEventListener('change', (e) => {
-            generarCalendario(deudaActual, estadoActual, e.target.value);
+            generarCalendario(deudaFinalGlobal, estadoGlobal, e.target.value);
         });
 
         function generarCalendario(deudaDolares, estado, anioVer) {
-		    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-		    const contenedor = document.getElementById('calendarioPagos');
-		    const hoy = new Date();
-		    const diaHoy = hoy.getDate();
-		    const mesHoy = hoy.getMonth();
-		    const anioHoy = hoy.getFullYear();
-		    
-		    let mesesADeber = Math.floor(deudaDolares / 5);
-		    contenedor.innerHTML = "";
+            const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+            const contenedor = document.getElementById('calendarioPagos');
+            const hoy = new Date();
+            const diaHoy = hoy.getDate();
+            const mesHoy = hoy.getMonth();
+            const anioHoy = hoy.getFullYear();
+            
+            let mesesADeber = Math.floor(deudaDolares / 5);
+            contenedor.innerHTML = "";
 
-		    meses.forEach((nombre, i) => {
-		        let color = "bg-secondary text-muted"; // Color por defecto: Gris (Futuro)
-		        let estilo = "";
+            meses.forEach((nombre, i) => {
+                let color = "bg-secondary text-muted";
+                let estilo = "";
 
-		        // Determinamos si el mes 'i' del año 'anioVer' ya debería evaluarse como deuda
-		        if (parseInt(anioVer) < anioHoy || (parseInt(anioVer) === anioHoy && i <= mesHoy)) {
-		            
-		            // Lógica de los 5 días de gracia para el MES ACTUAL
-		            let esMesActualYGracia = (parseInt(anioVer) === anioHoy && i === mesHoy && diaHoy <= 5);
-
-		            if (esMesActualYGracia) {
-		                // Estamos en los primeros 5 días: Se queda Gris (corriendo)
-		                color = "bg-secondary text-muted";
-		            } else {
-		                // Ya pasó el periodo de gracia o es un mes pasado
-		                let diff = ((anioHoy - parseInt(anioVer)) * 12) + (mesHoy - i);
-		                
-		                if (diff < mesesADeber) {
-		                    // EL MES ENTRA EN LA DEUDA
-		                    if (estado === "SUSPENDIDO") {
-		                        color = "bg-dark text-danger";
-		                        estilo = "text-decoration: line-through; opacity: 0.5;";
-		                    } else {
-		                        color = "bg-danger text-white";
-		                    }
-		                } else {
-		                    // ESTÁ PAGADO
-		                    color = "bg-success text-white";
-		                }
-		            }
-		        }
-
-		        contenedor.innerHTML += `
-		            <div class="col-3">
-		                <div class="p-2 rounded small fw-bold ${color}" style="${estilo}">
-		                    ${nombre}
-		                </div>
-		            </div>`;
-		    });
-		}
+                if (parseInt(anioVer) < anioHoy || (parseInt(anioVer) === anioHoy && i <= mesHoy)) {
+                    let esMesActualYGracia = (parseInt(anioVer) === anioHoy && i === mesHoy && diaHoy <= 5);
+                    if (esMesActualYGracia) {
+                        color = "bg-secondary text-muted";
+                    } else {
+                        let diff = ((anioHoy - parseInt(anioVer)) * 12) + (mesHoy - i);
+                        if (diff < mesesADeber) {
+                            if (estado === "SUSPENDIDO") {
+                                color = "bg-dark text-muted";
+                                estilo = "text-decoration: line-through; opacity: 0.5;";
+                            } else { color = "bg-danger text-white"; }
+                        } else { color = "bg-success text-white"; }
+                    }
+                }
+                contenedor.innerHTML += `<div class="col-3"><div class="p-2 rounded small fw-bold ${color}" style="${estilo}">${nombre}</div></div>`;
+            });
+        }
 
         async function cargarUsuarios() {
             const lista = document.getElementById('listaUsuarios');
@@ -211,7 +208,7 @@
                             <div class="avatar">${u.nombre.charAt(0).toUpperCase()}</div>
                             <div><h6 class="mb-0 fw-bold">${u.nombre}</h6><small class="text-muted">$${u.deuda_total || 0} - ${u.estado_membresia}</small></div>
                         </div>
-                        <button class="btn btn-sm btn-outline-light" onclick="abrirEditor('${d.id}', ${u.deuda_total || 0}, '${u.estado_membresia}')">Editar</button>
+                        <button class="btn btn-sm btn-outline-light" onclick="window.abrirEditor('${d.id}', ${u.deuda_total || 0}, '${u.estado_membresia}')">Editar</button>
                     </div>`;
             });
         }

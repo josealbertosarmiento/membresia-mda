@@ -1,0 +1,17 @@
+body { background-color: #121212; color: #ffffff; padding-bottom: 90px; font-family: 'Segoe UI', sans-serif; }
+.navbar-custom { background-color: #1a1a1a; border-bottom: 1px solid #2d2d2d; }
+.text-accent { color: #d9534f; }
+.card-custom { background-color: #1e1e1e; border: 1px solid #333; border-radius: 15px; }
+.miembro-card { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 12px; margin-bottom: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; }
+.avatar { width: 40px; height: 40px; background-color: #d9534f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; }
+
+/* Barra tipo App */
+.nav-admin { position: fixed; bottom: 0; left: 0; width: 100%; height: 75px; background-color: #1a1a1a; border-top: 1px solid #333; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
+.nav-item { background: none; border: none; color: #888; display: flex; flex-direction: column; align-items: center; font-size: 12px; transition: 0.3s; }
+.nav-item.active { color: #d9534f; }
+.nav-item i { font-size: 24px; margin-bottom: 4px; }
+
+/* Botón flotante (+) */
+.fab-btn { position: fixed; bottom: 90px; right: 20px; width: 55px; height: 55px; border-radius: 50%; background-color: #d9534f; color: white; font-size: 24px; border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 999; }
+
+#pantallaCarga { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }

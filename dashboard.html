@@ -145,31 +145,37 @@
                 if (userDoc.exists()) {
                     const d = userDoc.data();
                     
-                    // --- LÓGICA DE ACTUALIZACIÓN AUTOMÁTICA ---
+                    // 1. DATA BASE
+                    let deudaBaseOriginal = Number(d.deuda_total) || 0;
                     const hoy = new Date();
-                    const mesActual = hoy.getMonth();
-                    const anioActual = hoy.getFullYear();
+                    
+                    // Usamos la fecha_anclaje de la BD o por defecto Marzo 2026
+                    const fechaReferencia = d.fecha_anclaje ? new Date(d.fecha_anclaje) : new Date(2026, 2, 1);
 
-                    // Definimos cuándo fue la última vez que se cargó la deuda (Marzo 2026)
-                    // En el futuro, esto podría venir de un campo 'ultima_actualizacion' en la BD
-                    const mesCargaBase = 2; // Marzo
-                    const anioCargaBase = 2026;
-
-                    // Calculamos meses reales que han pasado
-                    let mesesTranscurridos = ((anioActual - anioCargaBase) * 12) + (mesActual - mesCargaBase);
+                    // 2. CALCULO DE MESES
+                    let mesesTranscurridos = ((hoy.getFullYear() - fechaReferencia.getFullYear()) * 12) + (hoy.getMonth() - fechaReferencia.getMonth());
                     if (mesesTranscurridos < 0) mesesTranscurridos = 0;
 
-                    // Si han pasado meses y el usuario está ACTIVO, calculamos la nueva deuda base
-                    let deudaBaseOriginal = Number(d.deuda_total) || 0;
+                    // 3. CALCULO DE DEUDA REAL
                     let multiplicador = (d.estado_membresia === "SUSPENDIDO") ? 0 : 5;
-                    
-                    // Esta es la deuda que debería tener grabada en la BD
-                    let nuevaDeudaCalculada = deudaBaseOriginal + (mesesTranscurridos * multiplicador);
+                    let deudaCalculada = deudaBaseOriginal + (mesesTranscurridos * multiplicador);
 
-                    // INTERFAZ
-                    deudaFinalGlobal = nuevaDeudaCalculada;
+                    // --- FUNCIÓN DE AUTO-GUARDADO ---
+                    // Si la deuda calculada es mayor a la que hay en la BD, la actualizamos automáticamente
+                    if (deudaCalculada > deudaBaseOriginal && d.estado_membresia !== "SUSPENDIDO") {
+                        await updateDoc(userRef, {
+                            deuda_total: deudaCalculada,
+                            // Actualizamos el anclaje al mes actual para que no siga sumando doble
+                            fecha_anclaje: hoy.toISOString().split('T')[0] 
+                        });
+                        deudaFinalGlobal = deudaCalculada;
+                    } else {
+                        deudaFinalGlobal = deudaCalculada;
+                    }
+
                     estadoGlobal = d.estado_membresia || "ACTIVO";
 
+                    // Interfaz
                     document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
                     document.getElementById('miDeudaTotal').innerText = "$" + deudaFinalGlobal;
                     document.getElementById('txtRolMenu').innerText = d.rol_app || "MIEMBRO";
@@ -182,7 +188,7 @@
                     if (d.rol_app === "ADMIN") {
                         document.getElementById('seccionDirectorio').classList.remove('d-none');
                         document.getElementById('btnFabNuevo').classList.remove('d-none');
-                        cargarUsuarios(mesesTranscurridos); // Pasamos los meses para actualizar la lista también
+                        cargarUsuarios(mesesTranscurridos); 
                     }
 
                     document.getElementById('pantallaCarga').classList.add('d-none');

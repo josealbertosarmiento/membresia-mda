@@ -76,7 +76,10 @@ onAuthStateChanged(auth, async (user) => {
             deudaGlobal = dCalc; estadoGlobal = est;
             document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
-            generarCalendario(deudaGlobal, estadoGlobal, "2026");
+            
+            // Llenamos el selector y cargamos calendario
+            configurarSelectorAnios();
+            generarCalendario(deudaGlobal, estadoGlobal, document.getElementById('selectorAnio').value);
 
             if (["ADMIN", "TESORERO", "SECRETARIO", "DIRECTIVO"].includes(rolUsuarioActual)) {
                 document.getElementById('navAdmin').classList.remove('d-none');
@@ -187,6 +190,20 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
     location.reload();
 });
 
+// --- SISTEMA DE AÑOS DINÁMICOS ---
+function configurarSelectorAnios() {
+    const selector = document.getElementById('selectorAnio');
+    const anioActual = new Date().getFullYear();
+    let anioInicio = anioActual <= 2026 ? 2024 : anioActual - 2;
+    selector.innerHTML = "";
+    for (let i = anioInicio; i <= anioInicio + 2; i++) {
+        const opt = document.createElement('option');
+        opt.value = i; opt.text = `Año ${i}`;
+        if (i === anioActual) opt.selected = true;
+        selector.appendChild(opt);
+    }
+}
+
 function generarCalendario(deuda, estado, anio) {
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const cont = document.getElementById('calendarioPagos');
@@ -196,8 +213,6 @@ function generarCalendario(deuda, estado, anio) {
     
     let mDeuda = Math.floor(deuda / 5);
     cont.innerHTML = "";
-    
-    // Cambiamos el contenedor a la nueva clase Grid
     cont.className = "calendar-grid";
 
     meses.forEach((n, i) => {
@@ -217,7 +232,7 @@ function generarCalendario(deuda, estado, anio) {
                 if (estado === "SUSPENDIDO") {
                     clase = "month-debt";
                     subtexto = "Deuda";
-                    estiloExtra = "filter: brightness(0.7);"; // Más oscuro si está suspendido
+                    estiloExtra = "filter: brightness(0.7);"; 
                 } else {
                     clase = "month-debt";
                     subtexto = "Pagar";

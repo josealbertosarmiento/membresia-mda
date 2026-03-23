@@ -49,6 +49,7 @@ document.getElementById('btnNavGest').addEventListener('click', () => cambiarVis
 document.getElementById('btnNavSecre').addEventListener('click', () => cambiarVista('secretario'));
 
 // SESIÓN
+// --- DENTRO DE onAuthStateChanged ---
 onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "index.html"; return; }
     try {
@@ -57,49 +58,94 @@ onAuthStateChanged(auth, async (user) => {
             const d = snap.data();
             rolUsuarioActual = d.rol_app;
 
-            // Lógica de Deuda Automática
-            let deuda = Number(d.deuda_total) || 0;
+            let deudaActual = Number(d.deuda_total) || 0;
+            let estado = d.estado_membresia || "ACTIVO";
             const hoy = new Date();
-            const anclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
-            let meses = ((hoy.getFullYear() - anclaje.getFullYear()) * 12) + (hoy.getMonth() - anclaje.getMonth());
-            if (hoy.getDate() <= 5 && meses > 0) meses--;
             
-            let dCalc = deuda;
-            if (meses > 0 && d.estado_membresia === "ACTIVO") dCalc += (meses * 5);
-            let est = dCalc >= 20 ? "SUSPENDIDO" : "ACTIVO";
-
-            if (meses > 0 || est !== d.estado_membresia) {
-                await updateDoc(doc(db, "usuarios", user.uid), { deuda_total: dCalc, estado_membresia: est, fecha_anclaje: hoy.toISOString().split('T')[0] });
+            // 1. Verificar si hoy es día de cobro (Día 6 de cada mes)
+            // Solo sumamos deuda si el miembro está ACTIVO.
+            // Si ya está SUSPENDIDO, la deuda se queda trabada en lo que esté (ej. $20 o $55)
+            const anclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
+            let mesesTranscurridos = ((hoy.getFullYear() - anclaje.getFullYear()) * 12) + (hoy.getMonth() - anclaje.getMonth());
+            
+            // Si estamos después del día 5 y ha pasado un mes desde el último anclaje...
+            if (hoy.getDate() > 5 && mesesTranscurridos > 0) {
+                if (estado === "ACTIVO") {
+                    deudaActual += 5; // Solo sumamos si no estaba suspendido
+                    // Si con este nuevo mes llega a $20, se suspende
+                    if (deudaActual >= 20) estado = "SUSPENDIDO";
+                }
+                // Actualizamos la fecha de anclaje para no volver a sumar este mes
+                await updateDoc(doc(db, "usuarios", user.uid), { 
+                    deuda_total: deudaActual, 
+                    estado_membresia: estado, 
+                    fecha_anclaje: hoy.toISOString().split('T')[0] 
+                });
             }
 
-            deudaGlobal = dCalc; estadoGlobal = est;
+            deudaGlobal = deudaActual;
+            estadoGlobal = estado;
+
             document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
             
-            // Iniciar Calendario
             configurarSelectorAnios();
             generarCalendario(deudaGlobal, estadoGlobal, document.getElementById('selectorAnio').value);
-
-            // Permisos Directiva
-            if (["ADMIN", "TESORERO", "SECRETARIO", "DIRECTIVO"].includes(rolUsuarioActual)) {
-                document.getElementById('navAdmin').classList.remove('d-none');
-                cargarBalanceGlobal();
-                cargarUsuarios();
-                if (rolUsuarioActual === "ADMIN" || rolUsuarioActual === "TESORERO") {
-                    document.getElementById('btnsTesorero').classList.remove('d-none');
-                    prepararSelectCobro();
-                }
-                if (rolUsuarioActual === "ADMIN" || rolUsuarioActual === "SECRETARIO") {
-                    document.getElementById('btnNavSecre').classList.remove('d-none');
-                }
-            }
+            
+            // ... resto de los permisos (Caja, Fichas, etc) ...
         }
     } catch (e) { console.error(e); }
-    document.getElementById('pantallaCarga').classList.add('d-none');
-    document.getElementById('appContent').classList.remove('d-none');
 });
 
-// AÑOS DINÁMICOS (Bloques de 3 años)
+// --- FUNCIÓN DEL CALENDARIO (BASADO EN CUOTAS) ---
+function generarCalendario(deuda, estado, anioSel) {
+    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    const cont = document.getElementById('calendarioPagos');
+    const hoy = new Date();
+    const mesActual = hoy.getMonth();
+    const anioActual = hoy.getFullYear();
+
+    // Cuántos meses de deuda tiene el usuario (ej: $15 = 3 meses)
+    let mesesDeuda = Math.floor(deuda / 5);
+    cont.innerHTML = "";
+
+    meses.forEach((n, i) => {
+        let clase = "month-future"; 
+        let sub = "Próximo";
+
+        // Solo evaluamos meses que ya pasaron o el actual
+        if (parseInt(anioSel) < anioActual || (parseInt(anioSel) === anioActual && i <= mesActual)) {
+            
+            // Calculamos la posición del mes respecto al presente
+            let mesesAtras = ((anioActual - parseInt(anioSel)) * 12) + (mesActual - i);
+
+            // Si los meses atrás son menores a la deuda que tiene, sale en rojo
+            if (mesesAtras < mesesDeuda) {
+                clase = "month-debt";
+                sub = "Debe";
+            } else {
+                // Si ya pagó ese mes
+                clase = "month-paid";
+                sub = "Pagado";
+            }
+
+            // CASO ESPECIAL: Si está SUSPENDIDO y el mes es de los que pasó congelado
+            // (Es decir, meses que están más atrás de su deuda actual)
+            if (estado === "SUSPENDIDO" && mesesAtras >= mesesDeuda) {
+                clase = "month-null";
+                sub = "Congelado";
+                n += " (X)";
+            }
+        }
+
+        cont.innerHTML += `
+            <div class="month-card ${clase}">
+                <div>${n}</div>
+                <div style="font-size:8px; opacity:0.7">${sub}</div>
+            </div>`;
+    });
+}
+// AÑOS DINÁMICOS (Blques de 3 años)
 function configurarSelectorAnios() {
     const selector = document.getElementById('selectorAnio');
     const anioActual = new Date().getFullYear();
@@ -111,32 +157,6 @@ function configurarSelectorAnios() {
         if (i === anioActual) opt.selected = true;
         selector.appendChild(opt);
     }
-}
-
-// CALENDARIO GRID
-function generarCalendario(deuda, estado, anio) {
-    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-    const cont = document.getElementById('calendarioPagos');
-    const hoy = new Date();
-    const anioAct = hoy.getFullYear();
-    const mesAct = hoy.getMonth();
-    const anioSel = parseInt(anio);
-    
-    let mD = Math.floor(deuda / 5);
-    cont.innerHTML = "";
-    cont.className = "calendar-grid";
-
-    meses.forEach((n, i) => {
-        let clase = "month-future"; let sub = "Próximo";
-        if (anioSel < anioAct || (anioSel === anioAct && i <= mesAct)) {
-            let diff = ((anioAct - anioSel) * 12) + (mesAct - i);
-            if (anioSel === anioAct && i === mesAct && hoy.getDate() <= 5) { clase = "month-grace"; sub = "Gracia"; }
-            else if (diff < mD) { clase = "month-debt"; sub = "Pagar"; }
-            else if (estado === "SUSPENDIDO" && diff >= mD) { clase = "month-null"; sub = "Nulo"; n += " (X)"; }
-            else { clase = "month-paid"; sub = "Al día"; }
-        }
-        cont.innerHTML += `<div class="month-card ${clase}"><div>${n}</div><div style="font-size:8px; opacity:0.7">${sub}</div></div>`;
-    });
 }
 
 // [MANTENER AQUÍ EL RESTO DE TUS FUNCIONES: cargarBalanceGlobal, cargarUsuarios, registrarPago, etc.]

@@ -21,7 +21,7 @@ let deudaGlobal = 0;
 let estadoGlobal = "ACTIVO";
 let rolUsuarioActual = "ESTANDAR";
 
-// --- NAVEGACIÓN ---
+// NAVEGACIÓN
 const cambiarVista = (vista) => {
     const vPers = document.getElementById('vistaPersonal');
     const vGest = document.getElementById('vistaGestion');
@@ -44,12 +44,12 @@ document.getElementById('btnNavPers').addEventListener('click', () => cambiarVis
 document.getElementById('btnNavGest').addEventListener('click', () => cambiarVista('gestion'));
 document.getElementById('btnNavSecre').addEventListener('click', () => cambiarVista('secretario'));
 
-// --- LOGOUT ---
+// SALIR
 document.getElementById('btnCerrarSesion').addEventListener('click', () => {
     signOut(auth).then(() => window.location.href = "index.html");
 });
 
-// --- SESIÓN PRINCIPAL ---
+// SESIÓN
 onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "index.html"; return; }
     try {
@@ -76,7 +76,9 @@ onAuthStateChanged(auth, async (user) => {
             deudaGlobal = dCalc; estadoGlobal = est;
             document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
-            generarCalendario(deudaGlobal, estadoGlobal, "2026");
+            
+            configurarSelectorAnios();
+            generarCalendario(deudaGlobal, estadoGlobal, document.getElementById('selectorAnio').value);
 
             if (["ADMIN", "TESORERO", "SECRETARIO", "DIRECTIVO"].includes(rolUsuarioActual)) {
                 document.getElementById('navAdmin').classList.remove('d-none');
@@ -96,44 +98,73 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('appContent').classList.remove('d-none');
 });
 
-// --- CONTABILIDAD ---
+// LÓGICA AÑOS
+function configurarSelectorAnios() {
+    const selector = document.getElementById('selectorAnio');
+    const anioActual = new Date().getFullYear();
+    let anioInicio = anioActual <= 2026 ? 2024 : anioActual - 2;
+    selector.innerHTML = "";
+    for (let i = anioInicio; i <= anioInicio + 2; i++) {
+        const opt = document.createElement('option');
+        opt.value = i; opt.text = `Año ${i}`;
+        if (i === anioActual) opt.selected = true;
+        selector.appendChild(opt);
+    }
+}
+
+function generarCalendario(deuda, estado, anio) {
+    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    const cont = document.getElementById('calendarioPagos');
+    const hoy = new Date();
+    const anioAct = hoy.getFullYear();
+    const mesAct = hoy.getMonth();
+    const anioSel = parseInt(anio);
+    
+    let mD = Math.floor(deuda / 5);
+    cont.innerHTML = "";
+    cont.className = "calendar-grid";
+
+    meses.forEach((n, i) => {
+        let clase = "month-future"; let sub = "Próximo";
+        if (anioSel < anioAct || (anioSel === anioAct && i <= mesAct)) {
+            let diff = ((anioAct - anioSel) * 12) + (mesAct - i);
+            if (anioSel === anioAct && i === mesAct && hoy.getDate() <= 5) { clase = "month-grace"; sub = "Gracia"; }
+            else if (diff < mD) { clase = "month-debt"; sub = "Pagar"; }
+            else if (estado === "SUSPENDIDO" && diff >= mD) { clase = "month-null"; sub = "Nulo"; n += " (X)"; }
+            else { clase = "month-paid"; sub = "Al día"; }
+        }
+        cont.innerHTML += `<div class="month-card ${clase}"><div>${n}</div><div style="font-size:8px; opacity:0.7">${sub}</div></div>`;
+    });
+}
+
+// BALANCE Y COBROS
 async function cargarBalanceGlobal() {
     try {
         const snap = await getDocs(collection(db, "usuarios"));
-        let porCobrar = 0; let recaudadoApp = 0;
-        snap.forEach(d => {
-            porCobrar += (d.data().deuda_total || 0);
-            recaudadoApp += (d.data().acumulado_pagado || 0);
-        });
+        let porC = 0; let recApp = 0;
+        snap.forEach(d => { porC += (d.data().deuda_total || 0); recApp += (d.data().acumulado_pagado || 0); });
         const docFin = await getDoc(doc(db, "config", "finanzas"));
-        let saldoIni = docFin.exists() ? docFin.data().caja_inicial : 0;
-        document.getElementById('totalEnCaja').innerText = "$" + (saldoIni + recaudadoApp);
-        document.getElementById('totalPorCobrar').innerText = "$" + porCobrar;
+        let saldoI = docFin.exists() ? docFin.data().caja_inicial : 0;
+        document.getElementById('totalEnCaja').innerText = "$" + (saldoI + recApp);
+        document.getElementById('totalPorCobrar').innerText = "$" + porC;
     } catch (e) { console.log(e); }
 }
 
 document.getElementById('formCajaInicial').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const monto = Number(document.getElementById('montoCajaInicial').value);
-    await setDoc(doc(db, "config", "finanzas"), { caja_inicial: monto }, { merge: true });
+    await setDoc(doc(db, "config", "finanzas"), { caja_inicial: Number(document.getElementById('montoCajaInicial').value) }, { merge: true });
     location.reload();
 });
 
-// --- LISTA DE MIEMBROS ---
 async function cargarUsuarios() {
     const lista = document.getElementById('listaUsuarios');
     const snap = await getDocs(collection(db, "usuarios"));
     lista.innerHTML = "";
-    const puedeEditar = ["ADMIN", "TESORERO"].includes(rolUsuarioActual);
-
+    const puedeE = ["ADMIN", "TESORERO"].includes(rolUsuarioActual);
     snap.forEach(d => {
         const u = d.data();
-        let btnEdit = puedeEditar ? `<button class="btn btn-sm btn-outline-danger" onclick="window.abrirEditorManual('${d.id}', ${u.deuda_total})">Edit</button>` : "";
-        lista.innerHTML += `
-            <div class="miembro-card">
-                <div><b>${u.nombre}</b><br><small>$${u.deuda_total} - ${u.estado_membresia}</small></div>
-                ${btnEdit}
-            </div>`;
+        let btn = puedeE ? `<button class="btn btn-sm btn-outline-danger" onclick="window.abrirEditorManual('${d.id}', ${u.deuda_total})">Edit</button>` : "";
+        lista.innerHTML += `<div class="miembro-card"><div><b>${u.nombre}</b><br><small>$${u.deuda_total} - ${u.estado_membresia}</small></div>${btn}</div>`;
     });
 }
 
@@ -145,34 +176,9 @@ window.abrirEditorManual = (uid, deuda) => {
 
 document.getElementById('formEditarSaldo').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const uid = document.getElementById('editUid').value;
-    const monto = Number(document.getElementById('nuevoMontoManual').value);
-    await updateDoc(doc(db, "usuarios", uid), { deuda_total: monto, estado_membresia: monto >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
+    await updateDoc(doc(db, "usuarios", document.getElementById('editUid').value), { deuda_total: Number(document.getElementById('nuevoMontoManual').value), estado_membresia: Number(document.getElementById('nuevoMontoManual').value) >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
     location.reload();
 });
-
-// --- REGISTRO Y COBROS ---
-document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('btnSubmitRegistro');
-    btn.innerText = "Registrando..."; btn.disabled = true;
-    try {
-        const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
-        await setDoc(doc(db, "usuarios", u.user.uid), {
-            nombre: document.getElementById('nuevoNombre').value, cedula: document.getElementById('nuevaCedula').value, email: document.getElementById('nuevoEmail').value,
-            telefono: document.getElementById('nuevoTel').value, capitulo: document.getElementById('nuevoCapitulo').value, rango_mg: document.getElementById('nuevoRango').value,
-            rol_app: document.getElementById('nuevoRol').value, deuda_total: 0, acumulado_pagado: 0, estado_membresia: "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0]
-        });
-        await signOut(authSecundaria); location.reload();
-    } catch (err) { alert(err.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
-});
-
-async function prepararSelectCobro() {
-    const select = document.getElementById('selectCobroMiembro');
-    const snap = await getDocs(collection(db, "usuarios"));
-    select.innerHTML = '<option value="">Miembro...</option>';
-    snap.forEach(d => { select.innerHTML += `<option value="${d.id}">${d.data().nombre}</option>`; });
-}
 
 document.getElementById('formRegistrarPago').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -187,59 +193,26 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
     location.reload();
 });
 
-function generarCalendario(deuda, estado, anio) {
-    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-    const cont = document.getElementById('calendarioPagos');
-    const hoy = new Date();
-    const anioActual = hoy.getFullYear();
-    const mesActual = hoy.getMonth();
-    
-    let mDeuda = Math.floor(deuda / 5);
-    cont.innerHTML = "";
-    
-    // Cambiamos el contenedor a la nueva clase Grid
-    cont.className = "calendar-grid";
-
-    meses.forEach((n, i) => {
-        let clase = "month-future";
-        let subtexto = "Pendiente";
-        let estiloExtra = "";
-
-        const esteAnio = parseInt(anio);
-
-        if (esteAnio < anioActual || (esteAnio === anioActual && i <= mesActual)) {
-            let diff = ((anioActual - esteAnio) * 12) + (mesActual - i);
-
-            if (esteAnio === anioActual && i === mesActual && hoy.getDate() <= 5) {
-                clase = "month-grace";
-                subtexto = "Gracia";
-            } else if (diff < mDeuda) {
-                if (estado === "SUSPENDIDO") {
-                    clase = "month-debt";
-                    subtexto = "Deuda";
-                    estiloExtra = "filter: brightness(0.7);"; // Más oscuro si está suspendido
-                } else {
-                    clase = "month-debt";
-                    subtexto = "Pagar";
-                }
-            } else if (estado === "SUSPENDIDO" && diff >= mDeuda) {
-                clase = "month-null";
-                subtexto = "Nulo";
-                n += " (X)";
-            } else {
-                clase = "month-paid";
-                subtexto = "Al día";
-            }
-        } else {
-            subtexto = "Próximo";
-        }
-
-        cont.innerHTML += `
-            <div class="month-card ${clase}" style="${estiloExtra}">
-                <div>${n}</div>
-                <div class="month-status-label">${subtexto}</div>
-            </div>`;
-    });
+async function prepararSelectCobro() {
+    const select = document.getElementById('selectCobroMiembro');
+    const snap = await getDocs(collection(db, "usuarios"));
+    select.innerHTML = '<option value="">Miembro...</option>';
+    snap.forEach(d => { select.innerHTML += `<option value="${d.id}">${d.data().nombre}</option>`; });
 }
+
+document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitRegistro');
+    btn.innerText = "Registrando..."; btn.disabled = true;
+    try {
+        const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
+        await setDoc(doc(db, "usuarios", u.user.uid), {
+            nombre: document.getElementById('nuevoNombre').value, cedula: document.getElementById('nuevaCedula').value, email: document.getElementById('nuevoEmail').value,
+            telefono: document.getElementById('nuevoTel').value, capitulo: document.getElementById('nuevoCapitulo').value, rango_mg: document.getElementById('nuevoRango').value,
+            rol_app: document.getElementById('nuevoRol').value, deuda_total: 0, acumulado_pagado: 0, estado_membresia: "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0]
+        });
+        await signOut(authSecundaria); location.reload();
+    } catch (err) { alert(err.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
+});
 
 document.getElementById('selectorAnio').addEventListener('change', (e) => generarCalendario(deudaGlobal, estadoGlobal, e.target.value));

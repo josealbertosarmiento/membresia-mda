@@ -3,52 +3,38 @@ body { background-color: #121212; color: #ffffff; padding-bottom: 90px; font-fam
 .text-accent { color: #d9534f; }
 .card-custom { background-color: #1e1e1e; border: 1px solid #333; border-radius: 15px; }
 .miembro-card { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 12px; margin-bottom: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; }
-.avatar { width: 40px; height: 40px; background-color: #d9534f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; }
+
+/* CALENDARIO GRID */
+.calendar-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+    margin-top: 15px;
+}
+
+.month-card {
+    border-radius: 12px;
+    padding: 15px 5px;
+    text-align: center;
+    font-weight: bold;
+    border: 1px solid #333;
+    min-height: 65px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Colores Blindados */
+.month-paid { background-color: #198754 !important; color: #fff !important; border-color: #28a745 !important; }
+.month-debt { background-color: #d9534f !important; color: #fff !important; border-color: #ff4d4d !important; }
+.month-null { background-color: #2b2b2b !important; color: #666 !important; border: 1px dashed #444 !important; }
+.month-grace { background-color: #f0ad4e !important; color: #000 !important; border-color: #ffc107 !important; }
+.month-future { background-color: #1a1a1a !important; color: #444 !important; }
 
 /* Barra tipo App */
 .nav-admin { position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background-color: #1a1a1a; border-top: 1px solid #333; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
 .nav-item { background: none; border: none; color: #777; display: flex; flex-direction: column; align-items: center; flex: 1; transition: 0.3s; }
 .nav-item.active { color: #d9534f; }
 .nav-item span { font-size: 10px; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
-
-/* Contenedor del Calendario en Cuadrícula */
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr); /* 3 columnas para que quepa bien en móvil */
-    gap: 10px;
-    margin-top: 15px;
-}
-
-.month-card {
-    border-radius: 10px;
-    padding: 12px 5px;
-    font-size: 11px;
-    font-weight: bold;
-    text-transform: uppercase;
-    text-align: center;
-    border: 2px solid transparent;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 60px;
-}
-
-/* Estados Visuales */
-.month-paid { background-color: #198754; color: white; border-color: #1fe078; }
-.month-debt { background-color: #d9534f; color: white; border-color: #ff6b6b; }
-.month-null { background-color: #2b2b2b; color: #666; border: 1px dashed #444; } /* Meses X */
-.month-future { background-color: #1a1a1a; color: #444; border: 1px solid #2d2d2d; }
-.month-grace { background-color: #2b2b2b; color: #aaa; border: 1px solid #555; } /* Días de gracia */
-
-/* Etiqueta pequeña dentro del mes */
-.month-status-label {
-    font-size: 8px;
-    margin-top: 4px;
-    opacity: 0.8;
-}
-/* Botón flotante */
 .fab-btn { position: fixed; bottom: 85px; right: 20px; width: 50px; height: 50px; border-radius: 16px; background-color: #d9534f; color: white; font-size: 28px; border: none; box-shadow: 0 8px 15px rgba(217, 83, 79, 0.3); z-index: 999; }
-
 #pantallaCarga { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }

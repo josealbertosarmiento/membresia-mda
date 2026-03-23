@@ -98,6 +98,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // --- FUNCIÓN DEL CALENDARIO (BASADO EN CUOTAS) ---
+// --- FUNCIÓN DEL CALENDARIO (LÓGICA DE DEUDA ACUMULADA) ---
 function generarCalendario(deuda, estado, anioSel) {
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const cont = document.getElementById('calendarioPagos');
@@ -105,36 +106,43 @@ function generarCalendario(deuda, estado, anioSel) {
     const mesActual = hoy.getMonth();
     const anioActual = hoy.getFullYear();
 
-    // Cuántos meses de deuda tiene el usuario (ej: $15 = 3 meses)
-    let mesesDeuda = Math.floor(deuda / 5);
+    // 1. Calculamos cuántos meses de deuda tiene exactamente (Ej: $55 = 11 meses)
+    let mesesQueDebe = Math.floor(deuda / 5);
     cont.innerHTML = "";
+    cont.className = "calendar-grid";
 
     meses.forEach((n, i) => {
         let clase = "month-future"; 
         let sub = "Próximo";
+        const anioInt = parseInt(anioSel);
 
-        // Solo evaluamos meses que ya pasaron o el actual
-        if (parseInt(anioSel) < anioActual || (parseInt(anioSel) === anioActual && i <= mesActual)) {
+        // Solo evaluamos meses que ya pasaron o el mes actual
+        if (anioInt < anioActual || (anioInt === anioActual && i <= mesActual)) {
             
-            // Calculamos la posición del mes respecto al presente
-            let mesesAtras = ((anioActual - parseInt(anioSel)) * 12) + (mesActual - i);
+            // Calculamos cuántos meses han pasado desde "este cuadrito" hasta hoy
+            let distanciaAlPresente = ((anioActual - anioInt) * 12) + (mesActual - i);
 
-            // Si los meses atrás son menores a la deuda que tiene, sale en rojo
-            if (mesesAtras < mesesDeuda) {
-                clase = "month-debt";
-                sub = "Debe";
+            // LÓGICA MAESTRA:
+            // Si la distancia al presente es menor que los meses que debe, está en deuda.
+            if (distanciaAlPresente < mesesQueDebe) {
+                if (estado === "SUSPENDIDO") {
+                    clase = "month-null"; // TACHADO (X)
+                    sub = "Congelado";
+                    n += " (X)";
+                } else {
+                    clase = "month-debt";
+                    sub = "Pendiente";
+                }
             } else {
-                // Si ya pagó ese mes
+                // Si el mes está más atrás que su deuda actual, es que ya lo pagó
                 clase = "month-paid";
-                sub = "Pagado";
+                sub = "Al día";
             }
 
-            // CASO ESPECIAL: Si está SUSPENDIDO y el mes es de los que pasó congelado
-            // (Es decir, meses que están más atrás de su deuda actual)
-            if (estado === "SUSPENDIDO" && mesesAtras >= mesesDeuda) {
-                clase = "month-null";
-                sub = "Congelado";
-                n += " (X)";
+            // Excepción: Mes de Gracia (Día 1 al 5)
+            if (anioInt === anioActual && i === mesActual && hoy.getDate() <= 5 && deuda < 20) {
+                clase = "month-grace";
+                sub = "Gracia";
             }
         }
 
@@ -145,6 +153,42 @@ function generarCalendario(deuda, estado, anioSel) {
             </div>`;
     });
 }
+
+// --- REGISTRO DE PAGO (MANEJO DE $8, $10, etc.) ---
+document.getElementById('formRegistrarPago').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const uid = document.getElementById('selectCobroMiembro').value;
+    const monto = Number(document.getElementById('montoPago').value);
+    
+    try {
+        const refUser = doc(db, "usuarios", uid);
+        const snap = await getDoc(refUser);
+        const d = snap.data();
+        
+        // Restamos el monto tal cual. 
+        // Si debe $55 y paga $8, su nueva deuda es $47.
+        // El calendario calculará: 47 / 5 = 9.4 -> O sea, debe 9 meses y le sobran $2 para el 10mo.
+        let nD = Math.max(0, (d.deuda_total || 0) - monto);
+        let nA = (d.acumulado_pagado || 0) + monto;
+
+        await updateDoc(refUser, { 
+            deuda_total: nD, 
+            acumulado_pagado: nA, 
+            // Si la deuda baja de $20, se activa automáticamente
+            estado_membresia: nD >= 20 ? "SUSPENDIDO" : "ACTIVO", 
+            fecha_anclaje: new Date().toISOString().split('T')[0] 
+        });
+
+        await addDoc(collection(db, "finanzas"), {
+            fecha: new Date().toISOString(),
+            nombre_miembro: d.nombre,
+            monto: monto,
+            tipo: "INGRESO_CUOTA"
+        });
+
+        location.reload();
+    } catch (e) { console.error(e); }
+});
 // AÑOS DINÁMICOS (Blques de 3 años)
 function configurarSelectorAnios() {
     const selector = document.getElementById('selectorAnio');

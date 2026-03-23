@@ -36,18 +36,17 @@ const cambiarVista = (vista) => {
     fab.classList.add('d-none');
 
     if (vista === 'personal') { vPers.classList.remove('d-none'); bPers.classList.add('active'); }
-    else if (vista === 'gestion') { vGest.classList.remove('d-none'); bGest.classList.add('active'); if(rolUsuarioActual === "ADMIN") fab.classList.remove('d-none'); }
+    else if (vista === 'gestion') { 
+        vGest.classList.remove('d-none'); 
+        bGest.classList.add('active'); 
+        if(rolUsuarioActual === "ADMIN") fab.classList.remove('d-none'); 
+    }
     else if (vista === 'secretario') { vSecre.classList.remove('d-none'); bSecre.classList.add('active'); }
 };
 
 document.getElementById('btnNavPers').addEventListener('click', () => cambiarVista('personal'));
 document.getElementById('btnNavGest').addEventListener('click', () => cambiarVista('gestion'));
 document.getElementById('btnNavSecre').addEventListener('click', () => cambiarVista('secretario'));
-
-// SALIR
-document.getElementById('btnCerrarSesion').addEventListener('click', () => {
-    signOut(auth).then(() => window.location.href = "index.html");
-});
 
 // SESIÓN
 onAuthStateChanged(auth, async (user) => {
@@ -58,13 +57,13 @@ onAuthStateChanged(auth, async (user) => {
             const d = snap.data();
             rolUsuarioActual = d.rol_app;
 
+            // Lógica de Deuda Automática
             let deuda = Number(d.deuda_total) || 0;
             const hoy = new Date();
             const anclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
             let meses = ((hoy.getFullYear() - anclaje.getFullYear()) * 12) + (hoy.getMonth() - anclaje.getMonth());
             if (hoy.getDate() <= 5 && meses > 0) meses--;
-            if (meses < 0) meses = 0;
-
+            
             let dCalc = deuda;
             if (meses > 0 && d.estado_membresia === "ACTIVO") dCalc += (meses * 5);
             let est = dCalc >= 20 ? "SUSPENDIDO" : "ACTIVO";
@@ -77,9 +76,11 @@ onAuthStateChanged(auth, async (user) => {
             document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
             
+            // Iniciar Calendario
             configurarSelectorAnios();
             generarCalendario(deudaGlobal, estadoGlobal, document.getElementById('selectorAnio').value);
 
+            // Permisos Directiva
             if (["ADMIN", "TESORERO", "SECRETARIO", "DIRECTIVO"].includes(rolUsuarioActual)) {
                 document.getElementById('navAdmin').classList.remove('d-none');
                 cargarBalanceGlobal();
@@ -98,7 +99,7 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('appContent').classList.remove('d-none');
 });
 
-// LÓGICA AÑOS
+// AÑOS DINÁMICOS (Bloques de 3 años)
 function configurarSelectorAnios() {
     const selector = document.getElementById('selectorAnio');
     const anioActual = new Date().getFullYear();
@@ -112,6 +113,7 @@ function configurarSelectorAnios() {
     }
 }
 
+// CALENDARIO GRID
 function generarCalendario(deuda, estado, anio) {
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const cont = document.getElementById('calendarioPagos');
@@ -137,82 +139,7 @@ function generarCalendario(deuda, estado, anio) {
     });
 }
 
-// BALANCE Y COBROS
-async function cargarBalanceGlobal() {
-    try {
-        const snap = await getDocs(collection(db, "usuarios"));
-        let porC = 0; let recApp = 0;
-        snap.forEach(d => { porC += (d.data().deuda_total || 0); recApp += (d.data().acumulado_pagado || 0); });
-        const docFin = await getDoc(doc(db, "config", "finanzas"));
-        let saldoI = docFin.exists() ? docFin.data().caja_inicial : 0;
-        document.getElementById('totalEnCaja').innerText = "$" + (saldoI + recApp);
-        document.getElementById('totalPorCobrar').innerText = "$" + porC;
-    } catch (e) { console.log(e); }
-}
-
-document.getElementById('formCajaInicial').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await setDoc(doc(db, "config", "finanzas"), { caja_inicial: Number(document.getElementById('montoCajaInicial').value) }, { merge: true });
-    location.reload();
-});
-
-async function cargarUsuarios() {
-    const lista = document.getElementById('listaUsuarios');
-    const snap = await getDocs(collection(db, "usuarios"));
-    lista.innerHTML = "";
-    const puedeE = ["ADMIN", "TESORERO"].includes(rolUsuarioActual);
-    snap.forEach(d => {
-        const u = d.data();
-        let btn = puedeE ? `<button class="btn btn-sm btn-outline-danger" onclick="window.abrirEditorManual('${d.id}', ${u.deuda_total})">Edit</button>` : "";
-        lista.innerHTML += `<div class="miembro-card"><div><b>${u.nombre}</b><br><small>$${u.deuda_total} - ${u.estado_membresia}</small></div>${btn}</div>`;
-    });
-}
-
-window.abrirEditorManual = (uid, deuda) => {
-    document.getElementById('editUid').value = uid;
-    document.getElementById('nuevoMontoManual').value = deuda;
-    new bootstrap.Modal(document.getElementById('modalEditarSaldo')).show();
-};
-
-document.getElementById('formEditarSaldo').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await updateDoc(doc(db, "usuarios", document.getElementById('editUid').value), { deuda_total: Number(document.getElementById('nuevoMontoManual').value), estado_membresia: Number(document.getElementById('nuevoMontoManual').value) >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
-    location.reload();
-});
-
-document.getElementById('formRegistrarPago').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const uid = document.getElementById('selectCobroMiembro').value;
-    const monto = Number(document.getElementById('montoPago').value);
-    const snap = await getDoc(doc(db, "usuarios", uid));
-    const d = snap.data();
-    let nD = Math.max(0, (d.deuda_total || 0) - monto);
-    let nA = (d.acumulado_pagado || 0) + monto;
-    await updateDoc(doc(db, "usuarios", uid), { deuda_total: nD, acumulado_pagado: nA, estado_membresia: nD >= 20 ? "SUSPENDIDO" : "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0] });
-    await addDoc(collection(db, "finanzas"), { fecha: new Date().toISOString(), nombre_miembro: d.nombre, monto: monto, tipo: "INGRESO_CUOTA" });
-    location.reload();
-});
-
-async function prepararSelectCobro() {
-    const select = document.getElementById('selectCobroMiembro');
-    const snap = await getDocs(collection(db, "usuarios"));
-    select.innerHTML = '<option value="">Miembro...</option>';
-    snap.forEach(d => { select.innerHTML += `<option value="${d.id}">${d.data().nombre}</option>`; });
-}
-
-document.getElementById('formNuevoMiembro').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('btnSubmitRegistro');
-    btn.innerText = "Registrando..."; btn.disabled = true;
-    try {
-        const u = await createUserWithEmailAndPassword(authSecundaria, document.getElementById('nuevoEmail').value, document.getElementById('nuevoPass').value);
-        await setDoc(doc(db, "usuarios", u.user.uid), {
-            nombre: document.getElementById('nuevoNombre').value, cedula: document.getElementById('nuevaCedula').value, email: document.getElementById('nuevoEmail').value,
-            telefono: document.getElementById('nuevoTel').value, capitulo: document.getElementById('nuevoCapitulo').value, rango_mg: document.getElementById('nuevoRango').value,
-            rol_app: document.getElementById('nuevoRol').value, deuda_total: 0, acumulado_pagado: 0, estado_membresia: "ACTIVO", fecha_anclaje: new Date().toISOString().split('T')[0]
-        });
-        await signOut(authSecundaria); location.reload();
-    } catch (err) { alert(err.message); btn.innerText = "GUARDAR"; btn.disabled = false; }
-});
+// [MANTENER AQUÍ EL RESTO DE TUS FUNCIONES: cargarBalanceGlobal, cargarUsuarios, registrarPago, etc.]
 
 document.getElementById('selectorAnio').addEventListener('change', (e) => generarCalendario(deudaGlobal, estadoGlobal, e.target.value));
+document.getElementById('btnCerrarSesion').addEventListener('click', () => signOut(auth).then(() => window.location.href = "index.html"));

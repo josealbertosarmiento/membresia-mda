@@ -1,29 +1,36 @@
-/* Bloquear scroll elástico y selección de texto para que parezca nativo */
+/* COMPORTAMIENTO DE APP NATIVA */
 html, body {
     overscroll-behavior-y: contain;
     user-select: none; 
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
+    background-color: #121212;
+    color: #ffffff;
+    padding-bottom: 90px;
+    font-family: 'Segoe UI', sans-serif;
 }
 
-/* Permitir selección solo en inputs */
 input, textarea {
     user-select: text !important;
     -webkit-user-select: text !important;
 }
 
-/* Evitar que las imágenes se puedan arrastrar */
-img {
-    -webkit-user-drag: none;
-}
-
-body { background-color: #121212; color: #ffffff; padding-bottom: 90px; font-family: 'Segoe UI', sans-serif; }
+/* DISEÑO GENERAL */
 .navbar-custom { background-color: #1a1a1a; border-bottom: 1px solid #2d2d2d; }
 .text-accent { color: #d9534f; }
 .card-custom { background-color: #1e1e1e; border: 1px solid #333; border-radius: 15px; }
-.miembro-card { background-color: #1e1e1e; border: 1px solid #2d2d2d; border-radius: 12px; margin-bottom: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; }
+.miembro-card { 
+    background-color: #1e1e1e; 
+    border: 1px solid #2d2d2d; 
+    border-radius: 12px; 
+    margin-bottom: 10px; 
+    padding: 12px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+}
 
-/* CALENDARIO GRID */
+/* CALENDARIO PROFESIONAL (GRID) */
 .calendar-grid {
     display: grid !important;
     grid-template-columns: repeat(3, 1fr) !important;
@@ -43,17 +50,20 @@ body { background-color: #121212; color: #ffffff; padding-bottom: 90px; font-fam
     justify-content: center;
 }
 
-/* Colores Blindados */
+/* COLORES DE ESTADO (BLINDADOS) */
 .month-paid { background-color: #198754 !important; color: #fff !important; border-color: #28a745 !important; }
 .month-debt { background-color: #d9534f !important; color: #fff !important; border-color: #ff4d4d !important; }
 .month-null { background-color: #2b2b2b !important; color: #666 !important; border: 1px dashed #444 !important; }
 .month-grace { background-color: #f0ad4e !important; color: #000 !important; border-color: #ffc107 !important; }
 .month-future { background-color: #1a1a1a !important; color: #444 !important; }
 
-/* Barra tipo App */
+/* NAVEGACIÓN INFERIOR TIPO APP */
 .nav-admin { position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background-color: #1a1a1a; border-top: 1px solid #333; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
 .nav-item { background: none; border: none; color: #777; display: flex; flex-direction: column; align-items: center; flex: 1; transition: 0.3s; }
 .nav-item.active { color: #d9534f; }
 .nav-item span { font-size: 10px; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
-.fab-btn { position: fixed; bottom: 85px; right: 20px; width: 50px; height: 50px; border-radius: 16px; background-color: #d9534f; color: white; font-size: 28px; border: none; box-shadow: 0 8px 15px rgba(217, 83, 79, 0.3); z-index: 999; }
+
+/* BOTÓN FLOTANTE (+) */
+.fab-btn { position: fixed; bottom: 85px; right: 20px; width: 55px; height: 55px; border-radius: 18px; background-color: #d9534f; color: white; font-size: 28px; border: none; box-shadow: 0 8px 15px rgba(217, 83, 79, 0.3); z-index: 999; display: flex; align-items: center; justify-content: center; }
+
 #pantallaCarga { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; }

@@ -9,14 +9,13 @@
     <title>MDA App - Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="apple-touch-icon" href="logomdaapp.png">
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
 
     <div id="pantallaCarga">
         <div class="spinner-border text-danger mb-3"></div>
-        <h5 id="msgCarga">Sincronizando...</h5>
+        <h5>Sincronizando...</h5>
     </div>
 
     <div id="appContent" class="d-none">
@@ -30,30 +29,26 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <h6 id="txtNombreUsuario" class="mb-0">...</h6>
-                        <select id="selectorAnio" class="form-select form-select-sm mt-1 bg-dark text-white border-secondary">
-                            <option value="2026" selected>Año 2026</option>
-                            <option value="2025">Año 2025</option>
-                        </select>
+                        <select id="selectorAnio" class="form-select form-select-sm mt-1 bg-dark text-white border-secondary"></select>
                     </div>
                     <div class="text-end">
-                        <small>Deuda Total</small>
+                        <small class="text-white-50">Deuda Total</small>
                         <h4 class="text-danger fw-bold mb-0" id="miDeudaTotal">$0</h4>
                     </div>
                 </div>
                 <div id="calendarioPagos"></div>
-                <div id="indicadorSuspension" class="alert alert-dark py-2 mt-3 small text-center d-none" style="border: 1px dashed red; color: red;"></div>
             </div>
         </div>
 
         <div id="vistaGestion" class="container mt-4 d-none">
-            <div id="balanceGlobal" class="card bg-dark border-secondary p-3 mb-4 text-center shadow">
+            <div id="balanceGlobal" class="card bg-dark border-secondary p-3 mb-4 text-center">
                 <div class="row">
                     <div class="col-6 border-end border-secondary">
-                        <small class="text-white opacity-50">Caja Real (Fondo + Pagos)</small>
+                        <small class="text-white-50">Caja Real</small>
                         <h5 class="text-success fw-bold" id="totalEnCaja">$0</h5>
                     </div>
                     <div class="col-6">
-                        <small class="text-white opacity-50">Pendiente por Cobrar</small>
+                        <small class="text-white-50">Pendiente</small>
                         <h5 class="text-warning fw-bold" id="totalPorCobrar">$0</h5>
                     </div>
                 </div>
@@ -69,107 +64,23 @@
             <div id="listaUsuarios"></div>
         </div>
 
-        <div id="vistaSecretario" class="container mt-4 d-none">
-            <h2 class="fw-bold mb-3">Fichas / Capítulos</h2>
-            <div id="listaFichas"></div>
-        </div>
-
-        <button id="btnNuevoRegistro" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalRegistroPro">+</button>
-
         <div id="navAdmin" class="nav-admin d-none">
             <button id="btnNavPers" class="nav-item active"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg><span>Perfil</span></button>
             <button id="btnNavGest" class="nav-item"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4V6h16v12zm-10-7h8v2h-8z"/></svg><span>Caja</span></button>
             <button id="btnNavSecre" class="nav-item d-none"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg><span>Fichas</span></button>
         </div>
-    </div>
 
-    <div class="modal fade" id="modalCajaInicial" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-white border-secondary">
-                <div class="modal-header border-secondary"><h5 class="fw-bold">Ajustar Fondo Inicial</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <form id="formCajaInicial">
-                        <input type="number" id="montoCajaInicial" class="form-control mb-3" placeholder="Monto en $" required>
-                        <button type="submit" class="btn btn-success w-100 fw-bold">GUARDAR</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalEditarSaldo" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-white border-secondary">
-                <div class="modal-header border-secondary"><h5 class="fw-bold">Editar Saldo</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <form id="formEditarSaldo">
-                        <input type="hidden" id="editUid">
-                        <input type="number" id="nuevoMontoManual" class="form-control mb-3" required>
-                        <button type="submit" class="btn btn-danger w-100 fw-bold">ACTUALIZAR</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalRegistroPro" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content bg-dark text-white border-secondary">
-                <div class="modal-header border-secondary"><h5>Ficha Miembro</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <form id="formNuevoMiembro">
-                        <div class="row g-2 mb-3">
-                            <div class="col-6"><input type="text" id="nuevoNombre" class="form-control" placeholder="Nombre" required></div>
-                            <div class="col-6"><input type="text" id="nuevaCedula" class="form-control" placeholder="Cédula"></div>
-                            <div class="col-6"><input type="email" id="nuevoEmail" class="form-control" placeholder="Correo" required></div>
-                            <div class="col-6"><input type="password" id="nuevoPass" class="form-control" placeholder="Clave" required></div>
-                        </div>
-                        <h6 class="text-danger small fw-bold">MOTO Y SALUD</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-4"><input type="text" id="nuevoTel" class="form-control" placeholder="Teléfono"></div>
-                            <div class="col-4"><input type="text" id="nuevoTelEmerg" class="form-control" placeholder="Tel. Emerg."></div>
-                            <div class="col-4"><input type="text" id="nuevoNomEmerg" class="form-control" placeholder="Nombre Emerg."></div>
-                            <div class="col-4"><input type="text" id="motoModelo" class="form-control" placeholder="Modelo Moto"></div>
-                            <div class="col-4"><input type="text" id="motoPlaca" class="form-control" placeholder="Placa"></div>
-                            <div class="col-4"><input type="text" id="motoCilindrada" class="form-control" placeholder="Cilindrada"></div>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-4"><select id="nuevoCapitulo" class="form-select"><option value="Carabobo">Carabobo</option><option value="Aragua">Aragua</option></select></div>
-                            <div class="col-4"><select id="nuevoRango" class="form-select"><option value="Rookie">Rookie</option><option value="Presidente">Presidente</option><option value="Miembro">Miembro</option></select></div>
-                            <div class="col-4"><select id="nuevoRol" class="form-select"><option value="ESTANDAR">Estandar</option><option value="TESORERO">Tesorero</option><option value="SECRETARIO">Secretario</option><option value="ADMIN">Admin</option></select></div>
-                        </div>
-                        <button type="submit" class="btn btn-danger w-100 fw-bold mt-4" id="btnSubmitRegistro">GUARDAR</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalCobroReal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content bg-dark text-white border-success">
-                <div class="modal-header border-success"><h5>Cobrar Cuota</h5></div>
-                <div class="modal-body">
-                    <form id="formRegistrarPago">
-                        <select id="selectCobroMiembro" class="form-select mb-3" required></select>
-                        <input type="number" id="montoPago" class="form-control mb-3" placeholder="Monto $" required>
-                        <button type="submit" class="btn btn-success w-100 fw-bold">PROCESAR PAGO</button>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <button id="btnNuevoRegistro" class="fab-btn d-none" data-bs-toggle="modal" data-bs-target="#modalRegistroPro">+</button>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="app.js"></script>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('SW registrado', reg))
-            .catch(err => console.log('Error registro SW', err));
-        });
-      }
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js');
+            });
+        }
     </script>
 </body>
 </html>

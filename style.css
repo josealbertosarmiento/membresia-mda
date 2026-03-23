@@ -51,11 +51,11 @@ input, textarea {
 }
 
 /* COLORES DE ESTADO (BLINDADOS) */
-.month-paid { background-color: #198754 !important; color: #fff !important; border-color: #28a745 !important; }
 .month-debt { background-color: #d9534f !important; color: #fff !important; border-color: #ff4d4d !important; }
-.month-null { background-color: #2b2b2b !important; color: #666 !important; border: 1px dashed #444 !important; }
 .month-grace { background-color: #f0ad4e !important; color: #000 !important; border-color: #ffc107 !important; }
-.month-future { background-color: #1a1a1a !important; color: #444 !important; }
+.month-paid { background-color: #198754 !important; color: #fff !important; } /* Verde Fuerte */
+.month-null { background-color: #343a40 !important; color: #adb5bd !important; border: 1px dashed #6c757d !important; } /* Gris oscuro para Suspendido */
+.month-future { background-color: #1a1a1a !important; color: #444 !important; border: 1px solid #2d2d2d !important; } /* Negro para el futuro */
 
 /* NAVEGACIÓN INFERIOR TIPO APP */
 .nav-admin { position: fixed; bottom: 0; left: 0; width: 100%; height: 65px; background-color: #1a1a1a; border-top: 1px solid #333; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }

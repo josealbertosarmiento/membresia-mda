@@ -1,21 +1,16 @@
-const CACHE_NAME = 'mda-v1';
-const assets = [
-  './',
-  './index.html',
-  './dashboard.html',
-  './style.css',
-  './app.js',
-  './manifest.json',
-  './logomdaapp.png',    // Verifica que este archivo exista en la carpeta
-  './logomdaapp512.png'  // Verifica que este archivo exista en la carpeta
-];
+const CACHE_NAME = 'mda-v2';
 
+// No listamos archivos aquí para evitar que un error de escritura bloquee la PWA
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(assets)));
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(clients.claim());
 });
 
 self.addEventListener('fetch', e => {
   e.respondWith(
-    caches.match(e.request).then(res => res || fetch(e.request))
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });

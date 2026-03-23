@@ -2,7 +2,7 @@
   "name": "MDA Finanzas MG",
   "short_name": "MDA App",
   "description": "Gestión de Membresías Marihuaneros del Asfalto MG",
-  "start_url": "index.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#d9534f",

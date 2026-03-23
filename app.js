@@ -98,7 +98,6 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // --- FUNCIÓN DEL CALENDARIO (BASADO EN CUOTAS) ---
-// --- FUNCIÓN DEL CALENDARIO (LÓGICA DE DEUDA ACUMULADA) ---
 function generarCalendario(deuda, estado, anioSel) {
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const cont = document.getElementById('calendarioPagos');
@@ -106,7 +105,6 @@ function generarCalendario(deuda, estado, anioSel) {
     const mesActual = hoy.getMonth();
     const anioActual = hoy.getFullYear();
 
-    // 1. Calculamos cuántos meses debe (Ej: $15 = 3 meses)
     let mesesQueDebe = Math.floor(deuda / 5);
     cont.innerHTML = "";
     cont.className = "calendar-grid";
@@ -116,42 +114,29 @@ function generarCalendario(deuda, estado, anioSel) {
         let sub = "Próximo";
         const anioInt = parseInt(anioSel);
 
-        // A. DETERMINAR SI EL MES ES FUTURO, PRESENTE O PASADO
-        const esPasado = (anioInt < anioActual) || (anioInt === anioActual && i < mesActual);
-        const esPresente = (anioInt === anioActual && i === mesActual);
+        // Si el mes es pasado o es el presente
+        if (anioInt < anioActual || (anioInt === anioActual && i <= mesActual)) {
+            // Calculamos la distancia desde el mes actual hacia atrás
+            let distancia = ((anioActual - anioInt) * 12) + (mesActual - i);
 
-        if (esPasado || esPresente) {
-            // Calculamos qué tan atrás está este mes del presente (0 = mes actual, 1 = mes anterior...)
-            let antiguedad = ((anioActual - anioInt) * 12) + (mesActual - i);
-
-            // Si la antiguedad está dentro del rango de meses que debe
-            if (antiguedad < mesesQueDebe) {
+            if (distancia < mesesQueDebe) {
+                // Está dentro del rango de deuda
                 if (estado === "SUSPENDIDO") {
-                    clase = "month-null"; // GRIS CON X
+                    clase = "month-null";
                     sub = "Congelado";
                     n += " (X)";
                 } else {
-                    clase = "month-debt"; // ROJO
+                    clase = "month-debt";
                     sub = "Pendiente";
                 }
             } else {
-                // Si el mes es más viejo que la deuda, es porque ya se pagó en su momento
-                clase = "month-paid"; // VERDE
+                // Si está más atrás de los meses que debe, ya está pagado
+                clase = "month-paid";
                 sub = "Al día";
-            }
-
-            // Excepción estética: Día de Gracia (1 al 5)
-            if (esPresente && hoy.getDate() <= 5 && deuda < 20) {
-                clase = "month-grace";
-                sub = "Gracia";
             }
         }
 
-        cont.innerHTML += `
-            <div class="month-card ${clase}">
-                <div>${n}</div>
-                <div style="font-size:8px; opacity:0.7">${sub}</div>
-            </div>`;
+        cont.innerHTML += `<div class="month-card ${clase}"><div>${n}</div><div style="font-size:8px; opacity:0.7">${sub}</div></div>`;
     });
 }
 

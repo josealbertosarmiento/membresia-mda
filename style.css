@@ -1,3 +1,22 @@
+/* Bloquear scroll elástico y selección de texto para que parezca nativo */
+html, body {
+    overscroll-behavior-y: contain;
+    user-select: none; 
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Permitir selección solo en inputs */
+input, textarea {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+}
+
+/* Evitar que las imágenes se puedan arrastrar */
+img {
+    -webkit-user-drag: none;
+}
+
 body { background-color: #121212; color: #ffffff; padding-bottom: 90px; font-family: 'Segoe UI', sans-serif; }
 .navbar-custom { background-color: #1a1a1a; border-bottom: 1px solid #2d2d2d; }
 .text-accent { color: #d9534f; }

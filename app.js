@@ -11,6 +11,7 @@ const firebaseConfig = {
     appId: "1:209728856018:web:41f93f7c63b0e10a17720b"
 };
 
+// --- INICIALIZACIÓN ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -77,7 +78,7 @@ onAuthStateChanged(auth, async (user) => {
             document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
             
-            // Llenamos el selector y cargamos calendario
+            // Lógica de años integrada
             configurarSelectorAnios();
             generarCalendario(deudaGlobal, estadoGlobal, document.getElementById('selectorAnio').value);
 
@@ -190,7 +191,6 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
     location.reload();
 });
 
-// --- SISTEMA DE AÑOS DINÁMICOS ---
 function configurarSelectorAnios() {
     const selector = document.getElementById('selectorAnio');
     const anioActual = new Date().getFullYear();
@@ -210,50 +210,28 @@ function generarCalendario(deuda, estado, anio) {
     const hoy = new Date();
     const anioActual = hoy.getFullYear();
     const mesActual = hoy.getMonth();
-    
     let mDeuda = Math.floor(deuda / 5);
     cont.innerHTML = "";
     cont.className = "calendar-grid";
 
     meses.forEach((n, i) => {
         let clase = "month-future";
-        let subtexto = "Pendiente";
-        let estiloExtra = "";
-
+        let subtexto = "Próximo";
         const esteAnio = parseInt(anio);
 
         if (esteAnio < anioActual || (esteAnio === anioActual && i <= mesActual)) {
             let diff = ((anioActual - esteAnio) * 12) + (mesActual - i);
-
             if (esteAnio === anioActual && i === mesActual && hoy.getDate() <= 5) {
-                clase = "month-grace";
-                subtexto = "Gracia";
+                clase = "month-grace"; subtexto = "Gracia";
             } else if (diff < mDeuda) {
-                if (estado === "SUSPENDIDO") {
-                    clase = "month-debt";
-                    subtexto = "Deuda";
-                    estiloExtra = "filter: brightness(0.7);"; 
-                } else {
-                    clase = "month-debt";
-                    subtexto = "Pagar";
-                }
+                clase = "month-debt"; subtexto = estado === "SUSPENDIDO" ? "Deuda" : "Pagar";
             } else if (estado === "SUSPENDIDO" && diff >= mDeuda) {
-                clase = "month-null";
-                subtexto = "Nulo";
-                n += " (X)";
+                clase = "month-null"; subtexto = "Nulo"; n += " (X)";
             } else {
-                clase = "month-paid";
-                subtexto = "Al día";
+                clase = "month-paid"; subtexto = "Al día";
             }
-        } else {
-            subtexto = "Próximo";
         }
-
-        cont.innerHTML += `
-            <div class="month-card ${clase}" style="${estiloExtra}">
-                <div>${n}</div>
-                <div class="month-status-label">${subtexto}</div>
-            </div>`;
+        cont.innerHTML += `<div class="month-card ${clase}"><div>${n}</div><div class="month-status-label">${subtexto}</div></div>`;
     });
 }
 

@@ -191,17 +191,54 @@ function generarCalendario(deuda, estado, anio) {
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const cont = document.getElementById('calendarioPagos');
     const hoy = new Date();
-    let mD = Math.floor(deuda / 5);
+    const anioActual = hoy.getFullYear();
+    const mesActual = hoy.getMonth();
+    
+    let mDeuda = Math.floor(deuda / 5);
     cont.innerHTML = "";
+    
+    // Cambiamos el contenedor a la nueva clase Grid
+    cont.className = "calendar-grid";
+
     meses.forEach((n, i) => {
-        let col = "bg-secondary text-muted"; let es = "";
-        if (parseInt(anio) < hoy.getFullYear() || (parseInt(anio) === hoy.getFullYear() && i <= hoy.getMonth())) {
-            let diff = ((hoy.getFullYear() - parseInt(anio)) * 12) + (hoy.getMonth() - i);
-            if (diff < mD) col = estado === "SUSPENDIDO" ? "bg-dark text-white" : "bg-danger text-white";
-            else col = "bg-success text-white";
-            if (estado === "SUSPENDIDO" && diff >= mD) { es = "opacity: 0.5;"; n += " (X)"; }
+        let clase = "month-future";
+        let subtexto = "Pendiente";
+        let estiloExtra = "";
+
+        const esteAnio = parseInt(anio);
+
+        if (esteAnio < anioActual || (esteAnio === anioActual && i <= mesActual)) {
+            let diff = ((anioActual - esteAnio) * 12) + (mesActual - i);
+
+            if (esteAnio === anioActual && i === mesActual && hoy.getDate() <= 5) {
+                clase = "month-grace";
+                subtexto = "Gracia";
+            } else if (diff < mDeuda) {
+                if (estado === "SUSPENDIDO") {
+                    clase = "month-debt";
+                    subtexto = "Deuda";
+                    estiloExtra = "filter: brightness(0.7);"; // Más oscuro si está suspendido
+                } else {
+                    clase = "month-debt";
+                    subtexto = "Pagar";
+                }
+            } else if (estado === "SUSPENDIDO" && diff >= mDeuda) {
+                clase = "month-null";
+                subtexto = "Nulo";
+                n += " (X)";
+            } else {
+                clase = "month-paid";
+                subtexto = "Al día";
+            }
+        } else {
+            subtexto = "Próximo";
         }
-        cont.innerHTML += `<div class="col-3"><div class="p-2 rounded small fw-bold ${col}" style="${es}">${n}</div></div>`;
+
+        cont.innerHTML += `
+            <div class="month-card ${clase}" style="${estiloExtra}">
+                <div>${n}</div>
+                <div class="month-status-label">${subtexto}</div>
+            </div>`;
     });
 }
 

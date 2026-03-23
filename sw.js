@@ -4,7 +4,10 @@ const assets = [
   './index.html',
   './dashboard.html',
   './style.css',
-  './app.js'
+  './app.js',
+  './manifest.json',
+  './logomdaapp.png',    // Verifica que este archivo exista en la carpeta
+  './logomdaapp512.png'  // Verifica que este archivo exista en la carpeta
 ];
 
 self.addEventListener('install', e => {

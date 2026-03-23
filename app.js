@@ -31,25 +31,26 @@ const cambiarVista = (vista) => {
     const bSecre = document.getElementById('btnNavSecre');
     const fab = document.getElementById('btnNuevoRegistro');
 
-    [vPers, vGest, vSecre].forEach(v => v.classList.add('d-none'));
-    [bPers, bGest, bSecre].forEach(b => b.classList.remove('active'));
-    fab.classList.add('d-none');
+    [vPers, vGest, vSecre].forEach(v => v && v.classList.add('d-none'));
+    [bPers, bGest, bSecre].forEach(b => b && b.classList.remove('active'));
+    if(fab) fab.classList.add('d-none');
 
     if (vista === 'personal') { vPers.classList.remove('d-none'); bPers.classList.add('active'); }
     else if (vista === 'gestion') { 
         vGest.classList.remove('d-none'); 
         bGest.classList.add('active'); 
-        if(rolUsuarioActual === "ADMIN") fab.classList.remove('d-none'); 
+        if(rolUsuarioActual === "ADMIN" && fab) fab.classList.remove('d-none'); 
     }
     else if (vista === 'secretario') { vSecre.classList.remove('d-none'); bSecre.classList.add('active'); }
 };
 
 document.getElementById('btnNavPers').addEventListener('click', () => cambiarVista('personal'));
 document.getElementById('btnNavGest').addEventListener('click', () => cambiarVista('gestion'));
-document.getElementById('btnNavSecre').addEventListener('click', () => cambiarVista('secretario'));
+if(document.getElementById('btnNavSecre')) {
+    document.getElementById('btnNavSecre').addEventListener('click', () => cambiarVista('secretario'));
+}
 
 // SESIÓN
-// --- DENTRO DE onAuthStateChanged ---
 onAuthStateChanged(auth, async (user) => {
     if (!user) { window.location.href = "index.html"; return; }
     try {
@@ -58,124 +59,49 @@ onAuthStateChanged(auth, async (user) => {
             const d = snap.data();
             rolUsuarioActual = d.rol_app;
 
-            let deudaActual = Number(d.deuda_total) || 0;
-            let estado = d.estado_membresia || "ACTIVO";
+            let deuda = Number(d.deuda_total) || 0;
             const hoy = new Date();
-            
-            // 1. Verificar si hoy es día de cobro (Día 6 de cada mes)
-            // Solo sumamos deuda si el miembro está ACTIVO.
-            // Si ya está SUSPENDIDO, la deuda se queda trabada en lo que esté (ej. $20 o $55)
             const anclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
-            let mesesTranscurridos = ((hoy.getFullYear() - anclaje.getFullYear()) * 12) + (hoy.getMonth() - anclaje.getMonth());
+            let meses = ((hoy.getFullYear() - anclaje.getFullYear()) * 12) + (hoy.getMonth() - anclaje.getMonth());
             
-            // Si estamos después del día 5 y ha pasado un mes desde el último anclaje...
-            if (hoy.getDate() > 5 && mesesTranscurridos > 0) {
-                if (estado === "ACTIVO") {
-                    deudaActual += 5; // Solo sumamos si no estaba suspendido
-                    // Si con este nuevo mes llega a $20, se suspende
-                    if (deudaActual >= 20) estado = "SUSPENDIDO";
-                }
-                // Actualizamos la fecha de anclaje para no volver a sumar este mes
+            if (hoy.getDate() > 5 && meses > 0) {
+                if (d.estado_membresia === "ACTIVO") deuda += 5;
+                const nuevoEstado = deuda >= 20 ? "SUSPENDIDO" : "ACTIVO";
                 await updateDoc(doc(db, "usuarios", user.uid), { 
-                    deuda_total: deudaActual, 
-                    estado_membresia: estado, 
+                    deuda_total: deuda, 
+                    estado_membresia: nuevoEstado, 
                     fecha_anclaje: hoy.toISOString().split('T')[0] 
                 });
             }
 
-            deudaGlobal = deudaActual;
-            estadoGlobal = estado;
+            deudaGlobal = deuda;
+            estadoGlobal = d.estado_membresia || "ACTIVO";
 
             document.getElementById('txtNombreUsuario').innerText = "Hola, " + d.nombre;
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
             
             configurarSelectorAnios();
             generarCalendario(deudaGlobal, estadoGlobal, document.getElementById('selectorAnio').value);
-            
-            // ... resto de los permisos (Caja, Fichas, etc) ...
-        }
-    } catch (e) { console.error(e); }
-});
 
-// --- FUNCIÓN DEL CALENDARIO (BASADO EN CUOTAS) ---
-function generarCalendario(deuda, estado, anioSel) {
-    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-    const cont = document.getElementById('calendarioPagos');
-    const hoy = new Date();
-    const mesActual = hoy.getMonth();
-    const anioActual = hoy.getFullYear();
-
-    let mesesQueDebe = Math.floor(deuda / 5);
-    cont.innerHTML = "";
-    cont.className = "calendar-grid";
-
-    meses.forEach((n, i) => {
-        let clase = "month-future"; 
-        let sub = "Próximo";
-        const anioInt = parseInt(anioSel);
-
-        // Si el mes es pasado o es el presente
-        if (anioInt < anioActual || (anioInt === anioActual && i <= mesActual)) {
-            // Calculamos la distancia desde el mes actual hacia atrás
-            let distancia = ((anioActual - anioInt) * 12) + (mesActual - i);
-
-            if (distancia < mesesQueDebe) {
-                // Está dentro del rango de deuda
-                if (estado === "SUSPENDIDO") {
-                    clase = "month-null";
-                    sub = "Congelado";
-                    n += " (X)";
-                } else {
-                    clase = "month-debt";
-                    sub = "Pendiente";
+            if (["ADMIN", "TESORERO", "SECRETARIO", "DIRECTIVO"].includes(rolUsuarioActual)) {
+                document.getElementById('navAdmin').classList.remove('d-none');
+                cargarBalanceGlobal();
+                cargarUsuarios();
+                if (rolUsuarioActual === "ADMIN" || rolUsuarioActual === "TESORERO") {
+                    document.getElementById('btnsTesorero').classList.remove('d-none');
+                    prepararSelectCobro();
                 }
-            } else {
-                // Si está más atrás de los meses que debe, ya está pagado
-                clase = "month-paid";
-                sub = "Al día";
+                if (rolUsuarioActual === "ADMIN" || rolUsuarioActual === "SECRETARIO") {
+                    const btnSecre = document.getElementById('btnNavSecre');
+                    if(btnSecre) btnSecre.classList.remove('d-none');
+                }
             }
         }
-
-        cont.innerHTML += `<div class="month-card ${clase}"><div>${n}</div><div style="font-size:8px; opacity:0.7">${sub}</div></div>`;
-    });
-}
-
-// --- REGISTRO DE PAGO (MANEJO DE $8, $10, etc.) ---
-document.getElementById('formRegistrarPago').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const uid = document.getElementById('selectCobroMiembro').value;
-    const monto = Number(document.getElementById('montoPago').value);
-    
-    try {
-        const refUser = doc(db, "usuarios", uid);
-        const snap = await getDoc(refUser);
-        const d = snap.data();
-        
-        // Restamos el monto tal cual. 
-        // Si debe $55 y paga $8, su nueva deuda es $47.
-        // El calendario calculará: 47 / 5 = 9.4 -> O sea, debe 9 meses y le sobran $2 para el 10mo.
-        let nD = Math.max(0, (d.deuda_total || 0) - monto);
-        let nA = (d.acumulado_pagado || 0) + monto;
-
-        await updateDoc(refUser, { 
-            deuda_total: nD, 
-            acumulado_pagado: nA, 
-            // Si la deuda baja de $20, se activa automáticamente
-            estado_membresia: nD >= 20 ? "SUSPENDIDO" : "ACTIVO", 
-            fecha_anclaje: new Date().toISOString().split('T')[0] 
-        });
-
-        await addDoc(collection(db, "finanzas"), {
-            fecha: new Date().toISOString(),
-            nombre_miembro: d.nombre,
-            monto: monto,
-            tipo: "INGRESO_CUOTA"
-        });
-
-        location.reload();
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Error en sesión:", e); }
+    document.getElementById('pantallaCarga').classList.add('d-none');
+    document.getElementById('appContent').classList.remove('d-none');
 });
-// AÑOS DINÁMICOS (Blques de 3 años)
+
 function configurarSelectorAnios() {
     const selector = document.getElementById('selectorAnio');
     const anioActual = new Date().getFullYear();
@@ -189,7 +115,72 @@ function configurarSelectorAnios() {
     }
 }
 
-// [MANTENER AQUÍ EL RESTO DE TUS FUNCIONES: cargarBalanceGlobal, cargarUsuarios, registrarPago, etc.]
+function generarCalendario(deuda, estado, anioSel) {
+    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    const cont = document.getElementById('calendarioPagos');
+    const hoy = new Date();
+    const mesAct = hoy.getMonth();
+    const anioAct = hoy.getFullYear();
+    const anioInt = parseInt(anioSel);
 
-document.getElementById('selectorAnio').addEventListener('change', (e) => generarCalendario(deudaGlobal, estadoGlobal, e.target.value));
+    let cuotasPendientes = Math.floor(deuda / 5);
+    cont.innerHTML = "";
+    cont.className = "calendar-grid";
+
+    meses.forEach((n, i) => {
+        let clase = "month-future"; 
+        let sub = "Próximo";
+        const esPasadoOPresente = (anioInt < anioAct) || (anioInt === anioAct && i <= mesAct);
+
+        if (esPasadoOPresente) {
+            let antiguedad = ((anioAct - anioInt) * 12) + (mesAct - i);
+
+            if (antiguedad < cuotasPendientes) {
+                if (estado === "SUSPENDIDO") {
+                    clase = "month-null"; sub = "Congelado"; n += " (X)";
+                } else {
+                    clase = "month-debt"; sub = "Pendiente";
+                }
+            } else {
+                clase = "month-paid"; sub = "Al día";
+            }
+
+            if (anioInt === anioAct && i === mesAct && hoy.getDate() <= 5 && deuda < 20) {
+                clase = "month-grace"; sub = "Gracia";
+            }
+        }
+
+        cont.innerHTML += `<div class="month-card ${clase}"><div>${n}</div><div style="font-size:8px; opacity:0.7">${sub}</div></div>`;
+    });
+}
+
+// LOGICA DE CAJA Y USUARIOS (REDUCIDA PARA ESTABILIDAD)
+async function cargarBalanceGlobal() {
+    try {
+        const snap = await getDocs(collection(db, "usuarios"));
+        let porC = 0, recApp = 0;
+        snap.forEach(d => { 
+            porC += (d.data().deuda_total || 0); 
+            recApp += (d.data().acumulado_pagado || 0); 
+        });
+        const docFin = await getDoc(doc(db, "config", "finanzas"));
+        let saldoI = docFin.exists() ? docFin.data().caja_inicial : 0;
+        document.getElementById('totalEnCaja').innerText = "$" + (saldoI + recApp);
+        document.getElementById('totalPorCobrar').innerText = "$" + porC;
+    } catch (e) { console.log(e); }
+}
+
+async function cargarUsuarios() {
+    const lista = document.getElementById('listaUsuarios');
+    const snap = await getDocs(collection(db, "usuarios"));
+    lista.innerHTML = "";
+    const puedeE = ["ADMIN", "TESORERO"].includes(rolUsuarioActual);
+    snap.forEach(d => {
+        const u = d.data();
+        let btn = puedeE ? `<button class="btn btn-sm btn-outline-danger" onclick="window.abrirEditorManual('${d.id}', ${u.deuda_total})">Edit</button>` : "";
+        lista.innerHTML += `<div class="miembro-card"><div><b>${u.nombre}</b><br><small>$${u.deuda_total} - ${u.estado_membresia}</small></div>${btn}</div>`;
+    });
+}
+
 document.getElementById('btnCerrarSesion').addEventListener('click', () => signOut(auth).then(() => window.location.href = "index.html"));
+document.getElementById('selectorAnio').addEventListener('change', (e) => generarCalendario(deudaGlobal, estadoGlobal, e.target.value));

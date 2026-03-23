@@ -1,6 +1,5 @@
-const CACHE_NAME = 'mda-v2';
+const CACHE_NAME = 'mda-v3';
 
-// No listamos archivos aquí para evitar que un error de escritura bloquee la PWA
 self.addEventListener('install', e => {
   self.skipWaiting();
 });

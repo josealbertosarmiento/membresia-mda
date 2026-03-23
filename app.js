@@ -58,7 +58,6 @@ onAuthStateChanged(auth, async (user) => {
             const d = snap.data();
             rolUsuarioActual = d.rol_app;
 
-            // Lógica de Deuda
             let deuda = Number(d.deuda_total) || 0;
             const hoy = new Date();
             const anclaje = d.fecha_anclaje ? new Date(d.fecha_anclaje + "T00:00:00") : new Date(2026, 2, 1);
@@ -79,7 +78,6 @@ onAuthStateChanged(auth, async (user) => {
             document.getElementById('miDeudaTotal').innerText = "$" + deudaGlobal;
             generarCalendario(deudaGlobal, estadoGlobal, "2026");
 
-            // Visibilidad por Roles
             if (["ADMIN", "TESORERO", "SECRETARIO", "DIRECTIVO"].includes(rolUsuarioActual)) {
                 document.getElementById('navAdmin').classList.remove('d-none');
                 cargarBalanceGlobal();
@@ -93,7 +91,7 @@ onAuthStateChanged(auth, async (user) => {
                 }
             }
         }
-    } catch (e) { console.error("Error Auth:", e); }
+    } catch (e) { console.error(e); }
     document.getElementById('pantallaCarga').classList.add('d-none');
     document.getElementById('appContent').classList.remove('d-none');
 });
@@ -121,7 +119,7 @@ document.getElementById('formCajaInicial').addEventListener('submit', async (e) 
     location.reload();
 });
 
-// --- GESTIÓN DE MIEMBROS ---
+// --- LISTA DE MIEMBROS ---
 async function cargarUsuarios() {
     const lista = document.getElementById('listaUsuarios');
     const snap = await getDocs(collection(db, "usuarios"));
@@ -189,7 +187,6 @@ document.getElementById('formRegistrarPago').addEventListener('submit', async (e
     location.reload();
 });
 
-// --- CALENDARIO ---
 function generarCalendario(deuda, estado, anio) {
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const cont = document.getElementById('calendarioPagos');
@@ -197,7 +194,7 @@ function generarCalendario(deuda, estado, anio) {
     let mD = Math.floor(deuda / 5);
     cont.innerHTML = "";
     meses.forEach((n, i) => {
-        let col = "bg-secondary text-white"; let es = "";
+        let col = "bg-secondary text-muted"; let es = "";
         if (parseInt(anio) < hoy.getFullYear() || (parseInt(anio) === hoy.getFullYear() && i <= hoy.getMonth())) {
             let diff = ((hoy.getFullYear() - parseInt(anio)) * 12) + (hoy.getMonth() - i);
             if (diff < mD) col = estado === "SUSPENDIDO" ? "bg-dark text-white" : "bg-danger text-white";
